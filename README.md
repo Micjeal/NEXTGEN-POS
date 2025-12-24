@@ -364,7 +364,7 @@ pnpm test:e2e
 SMMS POS is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 
 ### Commercial Licensing
-Enterprise features and white-label solutions available. Contact sales@smms-pos.com for licensing options.
+Enterprise features and white-label solutions available. Contact mugishamicheal24@gmail.com for licensing options.
 
 ---
 
