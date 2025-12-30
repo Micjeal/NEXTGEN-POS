@@ -64,26 +64,24 @@ export function AdjustInventoryDialog({ product, open, onOpenChange }: AdjustInv
           throw new Error("Invalid adjustment type")
       }
 
-      // Update inventory
-      const { error: updateError } = await supabase
-        .from("inventory")
-        .update({ quantity: newQuantity })
-        .eq("product_id", product.id)
-
-      if (updateError) throw updateError
-
-      // Log adjustment
-      const { error: logError } = await supabase.from("inventory_adjustments").insert({
-        product_id: product.id,
-        user_id: user.id,
-        adjustment_type: adjustmentType,
-        quantity_change: quantityChange,
-        quantity_before: currentStock,
-        quantity_after: newQuantity,
-        reason: reason || null,
+      // Call the inventory adjust API
+      const response = await fetch('/api/inventory/adjust', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          product_id: product.id,
+          adjustment_type: adjustmentType,
+          quantity_change: qtyValue,
+          reason: reason || null,
+        }),
       })
 
-      if (logError) throw logError
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `Failed to adjust inventory: ${response.status}`)
+      }
 
       toast({
         title: "Inventory Adjusted",

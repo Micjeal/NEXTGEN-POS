@@ -14,49 +14,70 @@ export default async function NotificationsPage() {
     return <div>Please log in to access notifications</div>
   }
 
-  // Sample notifications (in production, these would come from a notifications table)
-  const systemNotifications = [
-    { id: 'sys1', message: "New order received", subject: "New order received", sender: "System", priority: 'normal', date: new Date().toISOString(), read: false, type: "order", category: 'system' },
-    { id: 'sys2', message: "Inventory low: Product X", subject: "Inventory low: Product X", sender: "System", priority: 'urgent', date: new Date(Date.now() - 3600000).toISOString(), read: false, type: "inventory", category: 'system' },
-    { id: 'sys3', message: "New user registered", subject: "New user registered", sender: "System", priority: 'normal', date: new Date(Date.now() - 86400000).toISOString(), read: true, type: "user", category: 'system' },
-  ]
+  // Get user role for message filtering
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role:roles(name)")
+    .eq("id", user.id)
+    .single()
 
-  // Sample messages that appear as notifications (in production, fetch unread messages)
-  const messageNotifications = [
-    {
-      id: 'msg1',
-      subject: 'Welcome to SMMS Messaging',
-      message: 'Welcome to SMMS Messaging',
-      sender: 'System Administrator',
-      priority: 'normal',
-      date: new Date(Date.now() - 3600000).toISOString(),
-      read: false,
-      type: 'message',
-      category: 'message'
-    },
-    {
-      id: 'msg2',
-      subject: 'Daily Operations Update',
-      message: 'Daily Operations Update',
-      sender: 'Store Manager',
-      priority: 'normal',
-      date: new Date(Date.now() - 7200000).toISOString(),
-      read: true,
-      type: 'message',
-      category: 'message'
-    },
-    {
-      id: 'msg3',
-      subject: 'System Maintenance Tonight',
-      message: 'System Maintenance Tonight',
-      sender: 'IT Administrator',
-      priority: 'urgent',
-      date: new Date(Date.now() - 86400000).toISOString(),
-      read: false,
-      type: 'message',
-      category: 'message'
-    }
-  ]
+  const userRole = (profile as any)?.role?.name || "cashier"
+
+  // Fetch real unread messages
+  const { data: unreadMessages } = await supabase
+    .from('messages')
+    .select(`
+      id,
+      subject,
+      content,
+      priority,
+      is_read,
+      created_at,
+      sender:profiles(full_name)
+    `)
+    .or(`recipient_id.eq.${user.id},recipient_role.in.(${userRole})`)
+    .eq('is_read', false)
+    .order('created_at', { ascending: false })
+    .limit(20)
+
+  const messageNotifications = unreadMessages?.map((msg: any) => ({
+    id: msg.id,
+    message: msg.content,
+    subject: msg.subject,
+    sender: msg.sender?.full_name || "Unknown",
+    priority: msg.priority,
+    date: msg.created_at,
+    read: msg.is_read,
+    type: 'message',
+    category: 'message'
+  })) || []
+
+  // Fetch real email logs as notifications
+  const { data: emailLogs } = await supabase
+    .from('email_logs')
+    .select(`
+      id,
+      subject,
+      recipient_email,
+      status,
+      sent_at,
+      email_templates!inner(name, category)
+    `)
+    .eq('recipient_email', user.email)
+    .order('sent_at', { ascending: false })
+    .limit(20)
+
+  const systemNotifications = emailLogs?.map((log: any) => ({
+    id: log.id,
+    message: log.subject,
+    subject: log.subject,
+    sender: "System",
+    priority: (log.email_templates as any)?.category === 'alerts' ? 'urgent' : 'normal',
+    date: log.sent_at,
+    read: true, // Assume read since they're sent
+    type: (log.email_templates as any)?.category || "system",
+    category: 'system'
+  })) || []
 
   // Combine all notifications
   const allNotifications = [

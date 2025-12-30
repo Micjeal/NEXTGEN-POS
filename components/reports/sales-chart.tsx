@@ -36,7 +36,7 @@ export function SalesChart({ data }: SalesChartProps) {
         <YAxis
           className="text-xs"
           tick={{ fill: "hsl(var(--muted-foreground))" }}
-          tickFormatter={(value) => `$${value}`}
+          tickFormatter={(value) => `UGX ${value}`}
         />
         <Tooltip
           content={({ active, payload }) => {

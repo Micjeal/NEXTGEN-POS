@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server"
 import { InventoryTable } from "@/components/inventory/inventory-table"
 import type { Product } from "@/lib/types/database"
 import { redirect } from "next/navigation"
+import { cookies } from "next/headers"
 
 export default async function InventoryPage() {
   const supabase = await createClient()
@@ -28,15 +29,18 @@ export default async function InventoryPage() {
     redirect("/dashboard")
   }
 
-  const { data: products } = await supabase
-    .from("products")
-    .select(`
-      *,
-      category:categories(*),
-      inventory(*)
-    `)
-    .eq("is_active", true)
-    .order("name")
+  // Fetch products via API
+  const productsResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/products?active=true`, {
+    headers: {
+      cookie: (await cookies()).toString()
+    }
+  })
+
+  let products: Product[] = []
+  if (productsResponse.ok) {
+    const data = await productsResponse.json()
+    products = data.products || []
+  }
 
   return (
     <div className="space-y-6">

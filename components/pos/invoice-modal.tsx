@@ -8,22 +8,23 @@ import { Printer, Download, X, Star } from "lucide-react"
 import { formatCurrency } from "@/lib/utils/cart"
 
 interface InvoiceModalProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  invoiceNumber: string
-  items: CartItem[]
-  totals: {
-    subtotal: number
-    taxAmount: number
-    discountAmount: number
-    total: number
-  }
-  paymentMethod: string
-  customer?: Customer
-  pointsEarned?: number
-}
+   open: boolean
+   onOpenChange: (open: boolean) => void
+   invoiceNumber: string
+   items: CartItem[]
+   totals: {
+     subtotal: number
+     taxAmount: number
+     discountAmount: number
+     total: number
+   }
+   paymentMethod: string
+   customer?: Customer
+   pointsEarned?: number
+   currency: string
+ }
 
-export function InvoiceModal({ open, onOpenChange, invoiceNumber, items, totals, paymentMethod, customer, pointsEarned }: InvoiceModalProps) {
+export function InvoiceModal({ open, onOpenChange, invoiceNumber, items, totals, paymentMethod, customer, pointsEarned, currency }: InvoiceModalProps) {
   const handlePrint = () => {
     window.print()
   }
@@ -89,8 +90,8 @@ export function InvoiceModal({ open, onOpenChange, invoiceNumber, items, totals,
               <div key={item.product.id} className="grid grid-cols-12 text-sm">
                 <span className="col-span-6 truncate">{item.product.name}</span>
                 <span className="col-span-2 text-center">{item.quantity}</span>
-                <span className="col-span-2 text-right">{formatCurrency(item.product.price)}</span>
-                <span className="col-span-2 text-right">{formatCurrency(item.product.price * item.quantity)}</span>
+                <span className="col-span-2 text-right">{formatCurrency(item.product.price, currency)}</span>
+                <span className="col-span-2 text-right">{formatCurrency(item.product.price * item.quantity, currency)}</span>
               </div>
             ))}
           </div>
@@ -100,21 +101,21 @@ export function InvoiceModal({ open, onOpenChange, invoiceNumber, items, totals,
           <div className="space-y-1 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Subtotal</span>
-              <span>{formatCurrency(totals.subtotal)}</span>
+              <span>{formatCurrency(totals.subtotal, currency)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Tax</span>
-              <span>{formatCurrency(totals.taxAmount)}</span>
+              <span>{formatCurrency(totals.taxAmount, currency)}</span>
             </div>
             {totals.discountAmount > 0 && (
               <div className="flex justify-between text-green-600">
                 <span>Discount</span>
-                <span>-{formatCurrency(totals.discountAmount)}</span>
+                <span>-{formatCurrency(totals.discountAmount, currency)}</span>
               </div>
             )}
             <div className="flex justify-between font-bold text-lg pt-2 border-t">
               <span>Total</span>
-              <span>{formatCurrency(totals.total)}</span>
+              <span>{formatCurrency(totals.total, currency)}</span>
             </div>
           </div>
 

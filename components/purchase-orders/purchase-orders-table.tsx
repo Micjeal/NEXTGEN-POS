@@ -133,7 +133,7 @@ export function PurchaseOrdersTable({ purchaseOrders, suppliers }: PurchaseOrder
                         <div className="flex items-center gap-1">
                           <Calendar className="h-4 w-4 text-muted-foreground" />
                           <span className="text-sm">
-                            {new Date(order.expected_delivery_date).toLocaleDateString()}
+                            {new Date(order.expected_delivery_date).toISOString().split('T')[0]}
                           </span>
                         </div>
                       ) : (
@@ -148,7 +148,7 @@ export function PurchaseOrdersTable({ purchaseOrders, suppliers }: PurchaseOrder
                     </TableCell>
                     <TableCell>
                       <span className="text-sm text-muted-foreground">
-                        {new Date(order.created_at).toLocaleDateString()}
+                        {new Date(order.created_at).toISOString().split('T')[0]}
                       </span>
                     </TableCell>
                     <TableCell>

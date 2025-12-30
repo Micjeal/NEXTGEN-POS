@@ -1,19 +1,76 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { Search, Users, Building2 } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Search, Users, Building2, Menu } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { NotificationButton } from "@/components/ui/notification-button"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { createClient } from "@/lib/supabase/client"
 import type { Profile } from "@/lib/types/database"
 
 interface HeaderProps {
   profile: Profile | null
+  onToggleSidebar?: () => void
 }
 
-export function Header({ profile }: HeaderProps) {
+export function Header({ profile, onToggleSidebar }: HeaderProps) {
   const router = useRouter()
+  const [unreadCount, setUnreadCount] = useState(0)
+  const supabase = createClient()
+
+  useEffect(() => {
+    fetchUnreadCount()
+
+    // Subscribe to real-time updates for messages
+    const channel = supabase
+      .channel('messages_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages'
+        },
+        () => {
+          // Refetch unread count when messages change
+          fetchUnreadCount()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [])
+
+  const fetchUnreadCount = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Get user role
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("role:roles(name)")
+        .eq("id", user.id)
+        .single()
+
+      const userRole = (profileData as any)?.role?.name || "cashier"
+
+      // Fetch unread messages count
+      const { count } = await supabase
+        .from('messages')
+        .select('*', { count: 'exact', head: true })
+        .or(`recipient_id.eq.${user.id},recipient_role.in.(${userRole})`)
+        .eq('is_read', false)
+
+      setUnreadCount(count || 0)
+    } catch (error) {
+      console.error('Error fetching unread count:', error)
+    }
+  }
 
   const handleNotificationClick = () => {
     router.push('/notifications')
@@ -34,6 +91,17 @@ export function Header({ profile }: HeaderProps) {
   return (
     <header className="flex h-16 items-center justify-between border-b bg-card px-4 sm:px-6">
       <div className="flex items-center gap-2 sm:gap-4">
+        {onToggleSidebar && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onToggleSidebar}
+            className="p-2"
+            aria-label="Toggle sidebar"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+        )}
         <div className="relative flex-1 max-w-xs sm:max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input placeholder="Search..." className="w-full pl-9" />
@@ -41,7 +109,7 @@ export function Header({ profile }: HeaderProps) {
       </div>
       <div className="flex items-center gap-1 sm:gap-2 md:gap-4">
         <NotificationButton
-          count={3}
+          count={unreadCount}
           onClick={handleNotificationClick}
           aria-label="View notifications"
         />

@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Send, Users, User, AlertTriangle, Clock, Save } from "lucide-react"
+import { Send, Users, User, AlertTriangle, Clock, Save, Megaphone } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import type { Profile } from "@/lib/types/database"
@@ -26,8 +26,9 @@ export function MessageComposer({ children, replyTo }: MessageComposerProps) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [users, setUsers] = useState<Profile[]>([])
+  const [userRole, setUserRole] = useState<string>("")
   const [formData, setFormData] = useState({
-    recipientType: "user" as "user" | "role",
+    recipientType: "user" as "user" | "role" | "broadcast",
     recipientId: "",
     recipientRole: "",
     subject: replyTo ? `Re: ${replyTo.subject}` : "",
@@ -63,6 +64,19 @@ export function MessageComposer({ children, replyTo }: MessageComposerProps) {
 
   const fetchUsers = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Get user role
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role:roles(name)")
+        .eq("id", user.id)
+        .single()
+
+      setUserRole((profile as any)?.role?.name || "cashier")
+
+      // Get all users
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
@@ -94,10 +108,12 @@ export function MessageComposer({ children, replyTo }: MessageComposerProps) {
         if (!formData.recipientId) throw new Error("Please select a recipient")
         messageData.recipient_id = formData.recipientId
         messageData.message_type = "direct"
-      } else {
+      } else if (formData.recipientType === "role") {
         if (!formData.recipientRole) throw new Error("Please select a role")
         messageData.recipient_role = formData.recipientRole
         messageData.message_type = "role_based"
+      } else if (formData.recipientType === "broadcast") {
+        messageData.message_type = "broadcast"
       }
 
       if (replyTo) {
@@ -182,7 +198,7 @@ export function MessageComposer({ children, replyTo }: MessageComposerProps) {
             {/* Recipient Selection */}
             <div className="space-y-2">
               <Label>Send to</Label>
-              <div className="flex gap-4">
+              <div className="flex gap-4 flex-wrap">
                 <Button
                   type="button"
                   variant={formData.recipientType === "user" ? "default" : "outline"}
@@ -203,6 +219,18 @@ export function MessageComposer({ children, replyTo }: MessageComposerProps) {
                   <Users className="h-4 w-4" />
                   User Role
                 </Button>
+                {["admin", "manager"].includes(userRole) && (
+                  <Button
+                    type="button"
+                    variant={formData.recipientType === "broadcast" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setFormData(prev => ({ ...prev, recipientType: "broadcast" }))}
+                    className="flex items-center gap-2"
+                  >
+                    <Megaphone className="h-4 w-4" />
+                    Broadcast
+                  </Button>
+                )}
               </div>
             </div>
 

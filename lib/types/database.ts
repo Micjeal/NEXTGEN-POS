@@ -4,7 +4,24 @@ export type Role = {
   id: string
   name: "admin" | "manager" | "cashier"
   description: string | null
+  permissions: string[] // JSON array of permission names
   created_at: string
+}
+
+export type Permission = {
+  id: string
+  name: string
+  description: string | null
+  created_at: string
+}
+
+export type RolePermission = {
+  id: string
+  role_id: string
+  permission_id: string
+  created_at: string
+  role?: Role
+  permission?: Permission
 }
 
 export type Profile = {
@@ -54,11 +71,12 @@ export type InventoryAdjustment = {
   id: string
   product_id: string
   user_id: string
-  adjustment_type: "add" | "remove" | "set" | "sale" | "return"
+  adjustment_type: "manual" | "sale" | "purchase" | "return" | "adjustment"
   quantity_change: number
   quantity_before: number
   quantity_after: number
   reason: string | null
+  reference_id: string | null
   created_at: string
 }
 
@@ -121,7 +139,7 @@ export type Message = {
   content: string
   message_type: "direct" | "role_based" | "broadcast" | "system"
   priority: "normal" | "urgent" | "critical"
-  is_read: boolean
+  is_read: boolean | null
   parent_message_id: string | null
   created_at: string
   updated_at: string
@@ -198,6 +216,8 @@ export type CustomerLoyaltyAccount = {
   last_points_earned: string | null
   expiry_date: string | null
   is_active: boolean
+  created_at: string
+  updated_at: string
   customers?: Customer
   loyalty_program?: LoyaltyProgram
 }

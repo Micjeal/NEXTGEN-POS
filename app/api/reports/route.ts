@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createServiceClient } from "@/lib/supabase/server"
 import type { Sale, Product, Payment, Category as CategoryType, PaymentMethod } from "@/lib/types/database"
 import { NextResponse } from "next/server"
 
@@ -32,24 +32,17 @@ export async function GET() {
       )
     }
 
-    // Check user role - admin and manager can view reports
-    const { data: profile, error: roleError } = await supabase
+    // Check user role
+    const { data: profile } = await supabase
       .from('profiles')
       .select('*, role:roles(*)')
       .eq('id', user.id)
       .single()
 
-    if (roleError || !profile) {
-      return NextResponse.json(
-        { error: 'User profile not found' },
-        { status: 403 }
-      )
-    }
-
-    const userRole = profile.role?.name
+    const userRole = profile?.role?.name
     if (!['admin', 'manager'].includes(userRole || '')) {
       return NextResponse.json(
-        { error: 'Insufficient permissions' },
+        { error: 'Admin or Manager access required' },
         { status: 403 }
       )
     }
@@ -57,8 +50,10 @@ export async function GET() {
     const { start, end } = getDateRange()
     const { start: prevStart, end: prevEnd } = getPreviousDateRange()
 
+    const serviceClient = createServiceClient()
+
     // Fetch sales with items and payments
-    const { data: salesData } = await supabase
+    const { data: salesData } = await serviceClient
       .from("sales")
       .select(`
         *,
@@ -76,7 +71,7 @@ export async function GET() {
       .limit(1000) // Limit for performance
 
     // Fetch sales for previous period for comparison
-    const { data: prevSalesData } = await supabase
+    const { data: prevSalesData } = await serviceClient
       .from("sales")
       .select(`
         *,
@@ -90,19 +85,19 @@ export async function GET() {
       .eq("status", "completed")
 
     // Fetch product categories for filtering
-    const { data: categories } = await supabase
+    const { data: categories } = await serviceClient
       .from("categories")
       .select("*")
       .order("name")
 
     // Fetch payment methods
-    const { data: paymentMethods } = await supabase
+    const { data: paymentMethods } = await serviceClient
       .from("payment_methods")
       .select("*")
       .order("name")
 
     // Fetch recent audit logs
-    const { data: auditLogs } = await supabase
+    const { data: auditLogs } = await serviceClient
       .from("audit_logs")
       .select(`
         id,
@@ -115,7 +110,7 @@ export async function GET() {
       .limit(50)
 
     // Fetch recent inventory adjustments
-    const { data: inventoryAdjustments } = await supabase
+    const { data: inventoryAdjustments } = await serviceClient
       .from("inventory_adjustments")
       .select(`
         id,
@@ -131,7 +126,7 @@ export async function GET() {
       .limit(50)
 
     // Fetch user activity (recent logins/profile changes)
-    const { data: userActivity } = await supabase
+    const { data: userActivity } = await serviceClient
       .from("profiles")
       .select(`
         id,
@@ -144,7 +139,7 @@ export async function GET() {
       .limit(20)
 
     // Fetch product changes (recent additions/updates)
-    const { data: productChanges } = await supabase
+    const { data: productChanges } = await serviceClient
       .from("products")
       .select(`
         id,
@@ -157,23 +152,53 @@ export async function GET() {
       .order("updated_at", { ascending: false })
       .limit(20)
 
+    // Fetch loyalty program statistics
+    const { data: loyaltyPrograms } = await serviceClient
+      .from("loyalty_programs")
+      .select("*")
+      .eq("is_active", true)
+
+    const { data: loyaltyAccounts } = await serviceClient
+      .from("customer_loyalty_accounts")
+      .select(`
+        *,
+        customer:customers(full_name, membership_tier),
+        loyalty_program:loyalty_programs(name)
+      `)
+      .eq("is_active", true)
+
+    const { data: loyaltyTransactions } = await serviceClient
+      .from("loyalty_transactions")
+      .select(`
+        *,
+        customer_loyalty_account:customer_loyalty_accounts(
+          customer:customers(full_name),
+          loyalty_program:loyalty_programs(name)
+        )
+      `)
+      .order("created_at", { ascending: false })
+      .limit(100)
+
     // Fetch system statistics
-    const { count: totalUsers } = await supabase
+    const { count: totalUsers } = await serviceClient
       .from("profiles")
       .select("*", { count: "exact", head: true })
 
-    const { count: totalSalesCount } = await supabase
+    const { count: totalSalesCount } = await serviceClient
       .from("sales")
       .select("*", { count: "exact", head: true })
       .eq("status", "completed")
 
-    const { count: activeProducts } = await supabase
+    const { count: activeProducts } = await serviceClient
       .from("products")
       .select("*", { count: "exact", head: true })
       .eq("is_active", true)
 
     // Process sales data for charts and tables
-    const sales = (salesData || []) as Sale[]
+    const sales = (salesData || []).map(sale => ({
+      ...sale,
+      total: sale.total || (sale.items?.reduce((sum, item) => sum + ((item.quantity || 0) * (item.unit_price || 0)), 0) || 0)
+    })) as Sale[]
 
     // Calculate summary statistics
     const totalSales = sales.reduce((sum, sale) => sum + (sale.total || 0), 0)
@@ -181,7 +206,10 @@ export async function GET() {
     const avgSale = totalTransactions > 0 ? totalSales / totalTransactions : 0
 
     // Calculate previous period statistics for comparison
-    const prevSales = (prevSalesData || []) as Sale[]
+    const prevSales = (prevSalesData || []).map(sale => ({
+      ...sale,
+      total: sale.total || (sale.items?.reduce((sum, item) => sum + ((item.quantity || 0) * (item.unit_price || 0)), 0) || 0)
+    })) as Sale[]
     const prevTotalSales = prevSales.reduce((sum, sale) => sum + (sale.total || 0), 0)
     const prevTotalTransactions = prevSales.length
     const prevAvgSale = prevTotalTransactions > 0 ? prevTotalSales / prevTotalTransactions : 0
@@ -209,6 +237,12 @@ export async function GET() {
       new Date(a.date).getTime() - new Date(b.date).getTime()
     )
 
+    // Calculate loyalty statistics
+    const totalLoyaltyAccounts = loyaltyAccounts?.length || 0
+    const totalLoyaltyPoints = loyaltyAccounts?.reduce((sum, account) => sum + (account.current_points || 0), 0) || 0
+    const totalPointsEarned = loyaltyTransactions?.filter(t => t.transaction_type === 'earn').reduce((sum, t) => sum + (t.points || 0), 0) || 0
+    const totalPointsRedeemed = loyaltyTransactions?.filter(t => t.transaction_type === 'redeem').reduce((sum, t) => sum + Math.abs(t.points || 0), 0) || 0
+
     const response = {
       sales,
       salesChartData,
@@ -218,6 +252,9 @@ export async function GET() {
       inventoryAdjustments: inventoryAdjustments || [],
       userActivity: userActivity || [],
       productChanges: productChanges || [],
+      loyaltyPrograms: loyaltyPrograms || [],
+      loyaltyAccounts: loyaltyAccounts || [],
+      loyaltyTransactions: loyaltyTransactions || [],
       statistics: {
         totalUsers: totalUsers || 0,
         totalSalesCount: totalSalesCount || 0,
@@ -229,7 +266,12 @@ export async function GET() {
         avgSaleChange,
         activeProducts: activeProducts || 0,
         activeProductsChange,
-        dateRange: { start, end }
+        dateRange: { start, end },
+        // Loyalty statistics
+        totalLoyaltyAccounts,
+        totalLoyaltyPoints,
+        totalPointsEarned,
+        totalPointsRedeemed
       }
     }
 

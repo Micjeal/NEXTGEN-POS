@@ -3,17 +3,21 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { ShoppingCart, LayoutDashboard, Package, Warehouse, Users, BarChart3, Settings, LogOut, CreditCard, MessageSquare, Building2, FileText, Receipt, Shield } from "lucide-react"
+import { ShoppingCart, LayoutDashboard, Package, Warehouse, Users, BarChart3, Settings, LogOut, CreditCard, MessageSquare, Building2, FileText, Receipt, Shield, UserCheck, Award, Eye } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { useState, useEffect } from "react"
 import type { Profile } from "@/lib/types/database"
+import styles from "./sidebar.module.css"
 
 const navigation = [
-  { name: "Overview", href: "/dashboard", icon: LayoutDashboard, roles: ["admin", "manager", "cashier"] },
+  { name: "Overview", href: "/home", icon: LayoutDashboard, roles: ["admin", "manager", "cashier"] },
   { name: "POS Terminal", href: "/pos", icon: ShoppingCart, roles: ["admin", "manager", "cashier"] },
   { name: "All Transactions", href: "/transactions", icon: Receipt, roles: ["admin", "manager", "cashier"] },
   { name: "Cash Draw", href: "/cash-draw", icon: CreditCard, roles: ["admin", "manager", "cashier"] },
+  { name: "Customers", href: "/customers", icon: UserCheck, roles: ["admin", "manager", "cashier"] },
+  { name: "Loyalty", href: "/loyalty", icon: Award, roles: ["admin", "manager"] },
   { name: "Products", href: "/products", icon: Package, roles: ["admin", "manager"] },
   { name: "Inventory", href: "/inventory", icon: Warehouse, roles: ["admin", "manager"] },
   { name: "Suppliers", href: "/suppliers", icon: Building2, roles: ["admin", "manager"] },
@@ -21,6 +25,7 @@ const navigation = [
   { name: "Users", href: "/users", icon: Users, roles: ["admin", "manager"] },
   { name: "Messages", href: "/messages", icon: MessageSquare, roles: ["admin", "manager", "cashier"] },
   { name: "Reports", href: "/reports", icon: BarChart3, roles: ["admin", "manager"] },
+  { name: "Insights", href: "/insights", icon: Eye, roles: ["admin", "manager"] },
   { name: "Compliance", href: "/compliance", icon: Shield, roles: ["admin"] },
   { name: "Settings", href: "/settings", icon: Settings, roles: ["admin", "manager"] },
 ]
@@ -34,7 +39,21 @@ interface SidebarProps {
 export function Sidebar({ profile, isOpen = true, onToggle }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const userRole = profile?.role?.name || "cashier"
+  const supabase = createClient()
+
+  // Get current user to check role from JWT
+  const [user, setUser] = useState<any>(null)
+
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setUser(user)
+    }
+    getUser()
+  }, [supabase])
+
+  // Get role from JWT claims first, then profile, then default to cashier
+  const userRole = user?.user_metadata?.role || profile?.role?.name || "cashier"
 
   const filteredNavigation = navigation.filter((item) => item.roles.includes(userRole))
 
@@ -46,17 +65,14 @@ export function Sidebar({ profile, isOpen = true, onToggle }: SidebarProps) {
 
   return (
     <div className={cn(
-      "flex h-full flex-col bg-card border-r transition-transform duration-300 ease-in-out",
-      "w-64 sm:w-72 lg:w-64",
-      "lg:translate-x-0 lg:static lg:inset-0",
-      isOpen ? "translate-x-0" : "-translate-x-full",
-      "fixed inset-y-0 left-0 z-50 lg:relative lg:z-auto"
+      styles.sidebarWrapper,
+      !isOpen && styles.collapsed
     )}>
-      <div className="flex h-16 items-center gap-2 px-6 border-b">
+      <div className={styles.sidebarHeader}>
         <ShoppingCart className="h-6 w-6 text-primary" />
         <span className="text-lg font-bold">POS System</span>
       </div>
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      <nav className={styles.nav}>
         {filteredNavigation.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
           return (
@@ -76,8 +92,8 @@ export function Sidebar({ profile, isOpen = true, onToggle }: SidebarProps) {
           )
         })}
       </nav>
-      <div className="border-t p-4">
-        <div className="mb-3 px-3">
+      <div className={styles.footer}>
+        <div className={styles.userInfo}>
           <p className="text-sm font-medium">{profile?.full_name || "User"}</p>
           <p className="text-xs text-muted-foreground capitalize">{userRole}</p>
         </div>

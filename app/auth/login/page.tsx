@@ -11,7 +11,6 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect } from "react"
 import { ShoppingCart } from "lucide-react"
-import { BiometricLogin } from "@/components/auth/biometric-login"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -160,57 +159,6 @@ export default function LoginPage() {
                   />
                 </div>
 
-                {/* Biometric Login */}
-                <div className="space-y-2">
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-white px-2 text-muted-foreground">Or</span>
-                    </div>
-                  </div>
-                  <BiometricLogin
-                    onBiometricSuccess={async (userId) => {
-                      // Biometric authentication succeeded, now sign in the user
-                      try {
-                        // Get user email from the biometric response
-                        const biometricResponse = await fetch('/api/biometric', {
-                          method: 'PATCH',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            biometricType: 'fingerprint', // This would be passed from the component
-                            biometricData: 'authenticated', // This would be the actual biometric data
-                            deviceId: navigator.userAgent
-                          })
-                        })
-
-                        if (biometricResponse.ok) {
-                          const result = await biometricResponse.json()
-                          if (result.success && result.userEmail) {
-                            // Now sign in with email and a special biometric password
-                            const supabase = createClient()
-                            const { error } = await supabase.auth.signInWithPassword({
-                              email: result.userEmail,
-                              password: 'biometric_auth_' + result.userId // Special biometric password
-                            })
-
-                            if (!error) {
-                              router.push("/dashboard")
-                              router.refresh()
-                            } else {
-                              setError('Biometric authentication successful but login failed')
-                            }
-                          }
-                        }
-                      } catch (error) {
-                        console.error('Biometric session creation failed:', error)
-                        setError('Biometric authentication failed to create session')
-                      }
-                    }}
-                    disabled={isLoading}
-                  />
-                </div>
 
                 {success && (
                   <div className="p-3 rounded-md bg-green-50 border border-green-200">
@@ -240,11 +188,28 @@ export default function LoginPage() {
                   Forgot your password?
                 </Link>
               </div>
+
+              {/* Customer Login Button */}
+              <div className="pt-4 border-t border-gray-200">
+                <div className="text-center">
+                  <p className="text-sm text-gray-600 mb-3">Are you a customer?</p>
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="w-full h-11 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                  >
+                    <Link href="/auth/customer-login">
+                      Customer Login
+                    </Link>
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
+
           {/* Footer */}
-          <p className="text-center text-xs text-gray-500 mt-6">
+          <p className="text-center text-xs text-gray-500 mt-4">
             © 2024 POS System. All rights reserved.
           </p>
         </div>

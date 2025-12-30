@@ -1,9 +1,10 @@
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { NextRequest, NextResponse } from "next/server"
 
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
+    const serviceClient = createServiceClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get current cash drawer for user
-    const { data: drawer, error: drawerError } = await supabase
+    const { data: drawer, error: drawerError } = await serviceClient
       .from("cash_drawers")
       .select("*")
       .eq("user_id", user.id)
@@ -23,15 +24,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch drawer" }, { status: 500 })
     }
 
-    // Get recent transactions if drawer exists
+    // Get all transactions if drawer exists
     let transactions = []
     if (drawer) {
-      const { data: txns, error: txnError } = await supabase
+      const { data: txns, error: txnError } = await serviceClient
         .from("cash_transactions")
         .select("*")
         .eq("drawer_id", drawer.id)
         .order("created_at", { ascending: false })
-        .limit(50)
 
       if (txnError) {
         console.error("Error fetching transactions:", txnError)
@@ -40,9 +40,120 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Get today's date in UTC
+    const today = new Date()
+    const todayString = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-${String(today.getUTCDate()).padStart(2, '0')}`
+
+    // Get today's sales data
+    const { data: todaySales, error: salesError } = await serviceClient
+      .from("sales")
+      .select(`
+        id,
+        total,
+        created_at,
+        customer_id,
+        payments:payments(
+          amount,
+          payment_method:payment_methods(name)
+        )
+      `)
+      .eq("user_id", user.id)
+      .eq("status", "completed")
+      .gte("created_at", `${todayString}T00:00:00.000Z`)
+      .lte("created_at", `${todayString}T23:59:59.999Z`)
+
+    if (salesError) {
+      console.error("Error fetching today's sales:", salesError)
+    }
+
+    // Calculate today's sales summary
+    const todaySalesTotal = todaySales?.reduce((sum, sale) => sum + sale.total, 0) || 0
+    const todaySalesCount = todaySales?.length || 0
+    const todayCustomerCount = new Set(todaySales?.map(sale => sale.customer_id).filter(Boolean)).size
+
+    // Calculate payment method breakdown
+    const paymentBreakdown = {
+      cash: 0,
+      card: 0,
+      mobile: 0,
+      other: 0
+    }
+
+    todaySales?.forEach(sale => {
+      sale.payments?.forEach((payment: any) => {
+        const method = payment.payment_method?.name?.toLowerCase() || 'other'
+        if (method.includes('cash')) {
+          paymentBreakdown.cash += payment.amount
+        } else if (method.includes('card') || method.includes('credit') || method.includes('debit')) {
+          paymentBreakdown.card += payment.amount
+        } else if (method.includes('mobile') || method.includes('airtel') || method.includes('mtn')) {
+          paymentBreakdown.mobile += payment.amount
+        } else {
+          paymentBreakdown.other += payment.amount
+        }
+      })
+    })
+
+    // Get top selling products today
+    const { data: topProductsData, error: productsError } = await serviceClient
+      .from("sale_items")
+      .select(`
+        quantity,
+        line_total,
+        product:products(name, category:categories(name))
+      `)
+      .in("sale_id", todaySales?.map(s => s.id) || [])
+      .order("quantity", { ascending: false })
+      .limit(5)
+
+    if (productsError) {
+      console.error("Error fetching top products:", productsError)
+    }
+
+    // Process top products
+    const productSales = (topProductsData || []).reduce((acc: any, item: any) => {
+      const name = item.product?.name || 'Unknown'
+      if (!acc[name]) {
+        acc[name] = {
+          name,
+          quantity: 0,
+          revenue: 0,
+          category: item.product?.category?.name || 'General'
+        }
+      }
+      acc[name].quantity += item.quantity
+      acc[name].revenue += item.line_total
+      return acc
+    }, {})
+
+    const topProducts = Object.values(productSales)
+      .sort((a: any, b: any) => b.quantity - a.quantity)
+      .slice(0, 5)
+
+    // Get low stock alerts
+    const { data: lowStockItems, error: stockError } = await serviceClient
+      .from("products")
+      .select("name, inventory!inner(quantity)")
+      .eq("is_active", true)
+      .lt("inventory.quantity", 10)
+      .order("name", { ascending: true })
+      .limit(5)
+
+    if (stockError) {
+      console.error("Error fetching low stock:", stockError)
+    }
+
     return NextResponse.json({
       drawer: drawer || null,
-      transactions
+      transactions,
+      todaySummary: {
+        salesTotal: todaySalesTotal,
+        salesCount: todaySalesCount,
+        customerCount: todayCustomerCount,
+        paymentBreakdown
+      },
+      topProducts,
+      lowStockItems: lowStockItems || []
     })
   } catch (error) {
     console.error("Error in cash drawer GET:", error)
@@ -53,6 +164,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
+    const serviceClient = createServiceClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -79,7 +191,7 @@ export async function POST(request: NextRequest) {
         const openingBalance = data.opening_balance || 0
 
         // Create new drawer
-        const { data: newDrawer, error: createError } = await supabase
+        const { data: newDrawer, error: createError } = await serviceClient
           .from("cash_drawers")
           .insert({
             user_id: user.id,
@@ -99,7 +211,7 @@ export async function POST(request: NextRequest) {
 
         // Add opening float transaction
         if (openingBalance > 0) {
-          await supabase
+          await serviceClient
             .from("cash_transactions")
             .insert({
               drawer_id: newDrawer.id,
@@ -113,7 +225,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Log audit
-        await supabase
+        await serviceClient
           .from("cash_drawer_audit_logs")
           .insert({
             drawer_id: newDrawer.id,
@@ -142,7 +254,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Update drawer
-        const { data: updatedDrawer, error: updateError } = await supabase
+        const { data: updatedDrawer, error: updateError } = await serviceClient
           .from("cash_drawers")
           .update({
             status: "closed",
@@ -160,7 +272,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Log audit
-        await supabase
+        await serviceClient
           .from("cash_drawer_audit_logs")
           .insert({
             drawer_id: drawer_id,
@@ -193,7 +305,7 @@ export async function POST(request: NextRequest) {
         const expectedAfter = drawer.expected_balance + amount
 
         // Add transaction
-        const { data: transaction, error: txnError } = await supabase
+        const { data: transaction, error: txnError } = await serviceClient
           .from("cash_transactions")
           .insert({
             drawer_id,
@@ -214,7 +326,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Update drawer balance
-        await supabase
+        await serviceClient
           .from("cash_drawers")
           .update({
             current_balance: balanceAfter,
@@ -223,7 +335,7 @@ export async function POST(request: NextRequest) {
           .eq("id", drawer_id)
 
         // Log audit
-        await supabase
+        await serviceClient
           .from("cash_drawer_audit_logs")
           .insert({
             drawer_id,
@@ -254,7 +366,7 @@ export async function POST(request: NextRequest) {
         const discrepancy = actual_balance - drawer.expected_balance
 
         // Update drawer
-        const { data: updatedDrawer, error: updateError } = await supabase
+        const { data: updatedDrawer, error: updateError } = await serviceClient
           .from("cash_drawers")
           .update({
             status: "reconciled",
@@ -273,7 +385,7 @@ export async function POST(request: NextRequest) {
 
         // Add reconciliation transaction if there's a discrepancy
         if (discrepancy !== 0) {
-          await supabase
+          await serviceClient
             .from("cash_transactions")
             .insert({
               drawer_id,
@@ -288,7 +400,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Log audit
-        await supabase
+        await serviceClient
           .from("cash_drawer_audit_logs")
           .insert({
             drawer_id,

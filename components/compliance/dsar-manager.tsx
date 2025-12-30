@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,6 +9,8 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { FileText, Clock, CheckCircle, XCircle, Download, Plus } from "lucide-react"
 
 interface DSARRequest {
@@ -34,36 +35,47 @@ export function DSARManager() {
   const [showResponseDialog, setShowResponseDialog] = useState(false)
   const [selectedRequest, setSelectedRequest] = useState<DSARRequest | null>(null)
   const [responseData, setResponseData] = useState("")
+  const [newRequest, setNewRequest] = useState({
+    customerId: "",
+    requestType: "",
+    requestData: "",
+    notes: ""
+  })
+  const [customers, setCustomers] = useState<{id: string, full_name: string, email: string}[]>([])
+  const [loadingCustomers, setLoadingCustomers] = useState(false)
+  const [creating, setCreating] = useState(false)
   const { toast } = useToast()
-  const supabase = createClient()
 
   useEffect(() => {
     loadDSARRequests()
   }, [selectedStatus])
 
+  useEffect(() => {
+    if (showAddDialog) {
+      loadCustomers()
+    }
+  }, [showAddDialog])
+
   const loadDSARRequests = async () => {
     try {
       setLoading(true)
-      let query = supabase
-        .from('data_subject_requests')
-        .select(`
-          *,
-          customers (
-            full_name,
-            email,
-            phone
-          )
-        `)
-        .order('requested_at', { ascending: false })
-
+      const params = new URLSearchParams()
       if (selectedStatus !== 'all') {
-        query = query.eq('status', selectedStatus)
+        params.append('status', selectedStatus)
       }
 
-      const { data, error } = await query
+      const response = await fetch(`/api/dsar?${params.toString()}`)
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
+      }
 
-      if (error) throw error
-      setDsarRequests(data || [])
+      const result = await response.json()
+      if (result.error) {
+        throw new Error(result.error)
+      }
+
+      setDsarRequests(result.data || [])
     } catch (error) {
       console.error('Error loading DSAR requests:', error)
       toast({
@@ -76,21 +88,56 @@ export function DSARManager() {
     }
   }
 
-  const updateDSARStatus = async (requestId: string, status: string, responseData?: string) => {
+  const loadCustomers = async () => {
     try {
-      const updateData: any = { status }
-
-      if (status === 'completed') {
-        updateData.completed_at = new Date().toISOString()
-        updateData.response_data = responseData ? { response: responseData } : null
+      setLoadingCustomers(true)
+      const response = await fetch('/api/customers?limit=100')
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
       }
 
-      const { error } = await supabase
-        .from('data_subject_requests')
-        .update(updateData)
-        .eq('id', requestId)
+      const result = await response.json()
+      if (result.error) {
+        throw new Error(result.error)
+      }
 
-      if (error) throw error
+      setCustomers(result.data || [])
+    } catch (error) {
+      console.error('Error loading customers:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load customers",
+        variant: "destructive"
+      })
+    } finally {
+      setLoadingCustomers(false)
+    }
+  }
+
+  const updateDSARStatus = async (requestId: string, status: string, responseData?: string) => {
+    try {
+      const response = await fetch('/api/dsar', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: requestId,
+          status,
+          responseData: responseData ? { response: responseData } : undefined,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
+      }
+
+      const result = await response.json()
+      if (result.error) {
+        throw new Error(result.error)
+      }
 
       toast({
         title: "Success",
@@ -106,6 +153,63 @@ export function DSARManager() {
       toast({
         title: "Error",
         description: "Failed to update DSAR request",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const createDSARRequest = async () => {
+    try {
+      if (!newRequest.customerId || !newRequest.requestType) {
+        toast({
+          title: "Validation Error",
+          description: "Please select a customer and request type",
+          variant: "destructive"
+        })
+        return
+      }
+
+      const response = await fetch('/api/dsar', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          customerId: newRequest.customerId,
+          requestType: newRequest.requestType,
+          requestData: newRequest.requestData ? JSON.parse(newRequest.requestData) : {},
+          notes: newRequest.notes
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
+      }
+
+      const result = await response.json()
+      if (result.error) {
+        throw new Error(result.error)
+      }
+
+      toast({
+        title: "Success",
+        description: "DSAR request created successfully",
+      })
+
+      loadDSARRequests()
+      setShowAddDialog(false)
+      setNewRequest({
+        customerId: "",
+        requestType: "",
+        requestData: "",
+        notes: ""
+      })
+    } catch (error) {
+      console.error('Error creating DSAR:', error)
+      toast({
+        title: "Error",
+        description: "Failed to create DSAR request",
         variant: "destructive"
       })
     }
@@ -312,12 +416,65 @@ export function DSARManager() {
               DSAR requests are typically created through customer portals or direct requests.
               Manual creation should only be used for documentation purposes.
             </p>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="customer">Customer</Label>
+                <Select value={newRequest.customerId} onValueChange={(value) => setNewRequest({...newRequest, customerId: value})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a customer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {customers.map((customer) => (
+                      <SelectItem key={customer.id} value={customer.id}>
+                        {customer.full_name} - {customer.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="requestType">Request Type</Label>
+                <Select value={newRequest.requestType} onValueChange={(value) => setNewRequest({...newRequest, requestType: value})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select request type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="access">Access Data</SelectItem>
+                    <SelectItem value="rectification">Rectify Data</SelectItem>
+                    <SelectItem value="erasure">Erase Data</SelectItem>
+                    <SelectItem value="restriction">Restrict Processing</SelectItem>
+                    <SelectItem value="portability">Data Portability</SelectItem>
+                    <SelectItem value="objection">Object to Processing</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="requestData">Request Data (Optional JSON)</Label>
+                <Textarea
+                  id="requestData"
+                  value={newRequest.requestData}
+                  onChange={(e) => setNewRequest({...newRequest, requestData: e.target.value})}
+                  placeholder='{"key": "value"}'
+                  rows={3}
+                />
+              </div>
+              <div>
+                <Label htmlFor="notes">Notes</Label>
+                <Textarea
+                  id="notes"
+                  value={newRequest.notes}
+                  onChange={(e) => setNewRequest({...newRequest, notes: e.target.value})}
+                  placeholder="Additional notes..."
+                  rows={3}
+                />
+              </div>
+            </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setShowAddDialog(false)}>
                 Cancel
               </Button>
-              <Button disabled>
-                Create Request (Coming Soon)
+              <Button onClick={createDSARRequest} disabled={creating}>
+                {creating ? "Creating..." : "Create Request"}
               </Button>
             </div>
           </div>

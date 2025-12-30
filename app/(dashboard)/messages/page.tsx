@@ -1,254 +1,85 @@
-import { createClient } from "@/lib/supabase/server"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Inbox, Send, Megaphone, FileText, Plus, MessageSquare, Users, Package, Database } from "lucide-react"
-import { MessageInbox } from "@/components/messages/message-inbox"
-import { MessageComposer } from "@/components/messages/message-composer"
-import { MessageTemplates } from "@/components/messages/message-templates"
-import { SentMessages } from "@/components/messages/sent-messages"
+import { ChatInterface } from "@/components/messages/chat-interface"
 
-export default async function MessagesPage() {
-  const supabase = await createClient()
-
-  // Get current user
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return <div>Please log in to access messages</div>
-  }
-
-  // Get user role
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role:roles(name)")
-    .eq("id", user.id)
-    .single()
-
-  const userRole = (profile as any)?.role?.name || "cashier"
-  const isAdminOrManager = ["admin", "manager"].includes(userRole)
-
-  // Get unread message count
-  const { count: unreadCount } = await supabase
-    .from("messages")
-    .select("*", { count: "exact", head: true })
-    .or(`recipient_id.eq.${user.id},recipient_role.in.(admin,manager,cashier)`)
-    .eq("is_read", false)
-
-  // Get system statistics
-  const [
-    { count: totalUsers },
-    { count: totalProducts },
-    { count: totalCategories },
-    { count: totalMessages }
-  ] = await Promise.all([
-    supabase.from("profiles").select("*", { count: "exact", head: true }),
-    supabase.from("products").select("*", { count: "exact", head: true }),
-    supabase.from("categories").select("*", { count: "exact", head: true }),
-    supabase.from("messages").select("*", { count: "exact", head: true })
-  ])
-
-  // Get recent user activity
-  const { data: recentUsers } = await supabase
-    .from("profiles")
-    .select("full_name, created_at, role:roles(name)")
-    .order("created_at", { ascending: false })
-    .limit(5)
-
-  // Get role distribution
-  const { data: roleStats } = await supabase
-    .from("profiles")
-    .select("role:roles(name)")
-    .not("role", "is", null)
-
+export default function MessagesPage() {
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-800 to-purple-600 dark:from-blue-200 dark:to-purple-400 bg-clip-text text-transparent">
-            Messages
-          </h1>
-          <p className="text-slate-600 dark:text-slate-400 mt-2">
-            Internal communication and announcements
-            <span className="ml-2 text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 px-2 py-1 rounded">
-              Demo Mode
-            </span>
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+      <div className="container mx-auto px-6 py-8 max-w-6xl">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
+                <path d="M21.2 8.4c.5.38.8.97.8 1.6v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V10a2 2 0 0 1 .8-1.6l8-6a2 2 0 0 1 2.4 0l8 6Z"></path>
+                <path d="m22 10-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 10"></path>
+              </svg>
+            </div>
+            <div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-slate-900 via-slate-700 to-slate-900 dark:from-slate-100 dark:via-slate-200 dark:to-slate-100 bg-clip-text text-transparent">
+                Team Communication
+              </h1>
+              <p className="text-lg text-slate-600 dark:text-slate-400 mt-1">
+                Connect and collaborate with your team in real-time
+              </p>
+            </div>
+          </div>
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-lg border border-slate-200 dark:border-slate-700 hover:shadow-xl transition-shadow duration-300">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M22 2 2 22"></path>
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">24/7</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">Always Available</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-lg border border-slate-200 dark:border-slate-700 hover:shadow-xl transition-shadow duration-300">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
+                    <path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"></path>
+                    <path d="m21.854 2.147-10.94 10.939"></path>
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">Instant</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">Real-time Delivery</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-lg border border-slate-200 dark:border-slate-700 hover:shadow-xl transition-shadow duration-300">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">Team</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">Collaborative</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-4">
-          {unreadCount && unreadCount > 0 && (
-            <Badge variant="destructive" className="px-3 py-1">
-              {unreadCount} unread
-            </Badge>
-          )}
-          <MessageComposer>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Compose Message
-            </Button>
-          </MessageComposer>
+
+        {/* Chat Interface */}
+        <div className="animate-in fade-in-0 slide-in-from-bottom-4 duration-700">
+          <ChatInterface />
         </div>
       </div>
-
-      <Tabs defaultValue="inbox" className="space-y-6">
-        <TabsList className={`grid w-full ${isAdminOrManager ? 'grid-cols-5' : 'grid-cols-4'}`}>
-          <TabsTrigger value="inbox" className="flex items-center gap-2">
-            <Inbox className="h-4 w-4" />
-            Inbox {unreadCount && unreadCount > 0 && `(${unreadCount})`}
-          </TabsTrigger>
-          <TabsTrigger value="sent" className="flex items-center gap-2">
-            <Send className="h-4 w-4" />
-            Sent
-          </TabsTrigger>
-          <TabsTrigger value="broadcasts" className="flex items-center gap-2">
-            <Megaphone className="h-4 w-4" />
-            Broadcasts
-          </TabsTrigger>
-          {isAdminOrManager && (
-            <TabsTrigger value="system" className="flex items-center gap-2">
-              <MessageSquare className="h-4 w-4" />
-              System
-            </TabsTrigger>
-          )}
-          <TabsTrigger value="templates" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            Templates
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="inbox" className="space-y-6">
-          <MessageInbox />
-        </TabsContent>
-
-        <TabsContent value="sent" className="space-y-6">
-          <SentMessages />
-        </TabsContent>
-
-        <TabsContent value="broadcasts" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Megaphone className="h-5 w-5" />
-                Broadcast Messages
-              </CardTitle>
-              <CardDescription>System-wide announcements and notifications</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <Megaphone className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Broadcast messages feature coming soon</p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {isAdminOrManager && (
-          <TabsContent value="system" className="space-y-6">
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{totalUsers || 0}</div>
-                <p className="text-xs text-muted-foreground">Registered users</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Products</CardTitle>
-                <Package className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{totalProducts || 0}</div>
-                <p className="text-xs text-muted-foreground">In catalog</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Categories</CardTitle>
-                <Database className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{totalCategories || 0}</div>
-                <p className="text-xs text-muted-foreground">Product categories</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Messages</CardTitle>
-                <MessageSquare className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{totalMessages || 0}</div>
-                <p className="text-xs text-muted-foreground">Total sent</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Users</CardTitle>
-                <CardDescription>Newly registered team members</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {recentUsers?.slice(0, 5).map((user, index) => (
-                    <div key={index} className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">{user.full_name}</p>
-                        <p className="text-sm text-muted-foreground capitalize">{(user as any).role?.name}</p>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(user.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                  )) || (
-                    <p className="text-muted-foreground text-sm">No recent users</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>System Status</CardTitle>
-                <CardDescription>Current system information</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-sm">Database Status</span>
-                    <span className="text-sm font-medium text-green-600">Connected</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm">Last Backup</span>
-                    <span className="text-sm font-medium">Today 2:00 AM</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm">System Version</span>
-                    <span className="text-sm font-medium">SMMS POS v1.0</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm">Active Sessions</span>
-                    <span className="text-sm font-medium">{totalUsers || 0}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-          </TabsContent>
-        )}
-
-        <TabsContent value="templates" className="space-y-6">
-          <MessageTemplates />
-        </TabsContent>
-      </Tabs>
     </div>
   )
 }

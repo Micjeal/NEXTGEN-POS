@@ -8,9 +8,8 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
-import { Settings, Palette, Shield, Store, Users, Database, Plus, Edit, Trash2, User, Bell } from "lucide-react"
+import { Settings, Shield, Store, Users, Database, Plus, Edit, Trash2, User, Bell } from "lucide-react"
 import { SystemSettings } from "@/components/settings/system-settings"
-import { ThemeSettings } from "@/components/settings/theme-settings"
 import { PermissionSettings } from "@/components/settings/permission-settings"
 import { CategoryManager } from "@/components/settings/category-manager"
 import { PaymentManager } from "@/components/settings/payment-manager"
@@ -53,16 +52,16 @@ export default async function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 dark:from-slate-200 dark:to-slate-400 bg-clip-text text-transparent">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
           System Settings
         </h1>
-        <p className="text-slate-600 dark:text-slate-400 mt-2">
-          Configure system preferences, permissions, and appearance
+        <p className="text-slate-600 mt-2">
+          Configure system preferences and permissions
         </p>
       </div>
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-9">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="profile" className="flex items-center gap-2">
             <User className="h-4 w-4" />
             Profile
@@ -82,10 +81,6 @@ export default async function SettingsPage() {
           <TabsTrigger value="system" className="flex items-center gap-2">
             <Store className="h-4 w-4" />
             System
-          </TabsTrigger>
-          <TabsTrigger value="appearance" className="flex items-center gap-2">
-            <Palette className="h-4 w-4" />
-            Appearance
           </TabsTrigger>
           <TabsTrigger value="permissions" className="flex items-center gap-2">
             <Shield className="h-4 w-4" />
@@ -121,9 +116,6 @@ export default async function SettingsPage() {
           <SystemSettings />
         </TabsContent>
 
-        <TabsContent value="appearance" className="space-y-6">
-          <ThemeSettings />
-        </TabsContent>
 
         <TabsContent value="permissions" className="space-y-6">
           <PermissionSettings roles={roles || []} />

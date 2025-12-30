@@ -12,7 +12,6 @@ import { ConsentManager } from "@/components/compliance/consent-manager"
 import { DSARManager } from "@/components/compliance/dsar-manager"
 import { SecurityDashboard } from "@/components/compliance/security-dashboard"
 import { PCIDashboard } from "@/components/compliance/pci-dashboard"
-import { BiometricManager } from "@/components/compliance/biometric-manager"
 
 export default function CompliancePage() {
   const [activeTab, setActiveTab] = useState("overview")
@@ -31,32 +30,57 @@ export default function CompliancePage() {
 
   const loadComplianceStats = async () => {
     try {
+      let consentCount = 0
+      let dsarCount = 0
+      let incidentCount = 0
+      let auditCount = 0
+
       // Get consent stats
-      const { count: consentCount } = await supabase
-        .from('consent_logs')
-        .select('*', { count: 'exact', head: true })
+      try {
+        const result = await supabase
+          .from('consent_logs')
+          .select('*', { count: 'exact', head: true })
+        consentCount = result.count || 0
+      } catch (e) {
+        console.log('Consent logs table not available')
+      }
 
       // Get pending DSAR requests
-      const { count: dsarCount } = await supabase
-        .from('data_subject_requests')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending')
+      try {
+        const result = await supabase
+          .from('data_subject_requests')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'pending')
+        dsarCount = result.count || 0
+      } catch (e) {
+        console.log('DSAR table not available')
+      }
 
       // Get security incidents
-      const { count: incidentCount } = await supabase
-        .from('security_incidents')
-        .select('*', { count: 'exact', head: true })
+      try {
+        const result = await supabase
+          .from('security_incidents')
+          .select('*', { count: 'exact', head: true })
+        incidentCount = result.count || 0
+      } catch (e) {
+        console.log('Security incidents table not available')
+      }
 
       // Get compliance audits
-      const { count: auditCount } = await supabase
-        .from('compliance_audits')
-        .select('*', { count: 'exact', head: true })
+      try {
+        const result = await supabase
+          .from('compliance_audits')
+          .select('*', { count: 'exact', head: true })
+        auditCount = result.count || 0
+      } catch (e) {
+        console.log('Compliance audits table not available')
+      }
 
       setStats({
-        totalConsents: consentCount || 0,
-        pendingDSAR: dsarCount || 0,
-        securityIncidents: incidentCount || 0,
-        complianceAudits: auditCount || 0
+        totalConsents: consentCount,
+        pendingDSAR: dsarCount,
+        securityIncidents: incidentCount,
+        complianceAudits: auditCount
       })
     } catch (error) {
       console.error('Error loading compliance stats:', error)
@@ -136,11 +160,10 @@ export default function CompliancePage() {
 
       {/* Compliance Management Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="consent">Consent</TabsTrigger>
           <TabsTrigger value="dsar">DSAR</TabsTrigger>
-          <TabsTrigger value="biometric">Biometric</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="pci">PCI DSS</TabsTrigger>
         </TabsList>
@@ -234,10 +257,6 @@ export default function CompliancePage() {
 
         <TabsContent value="dsar">
           <DSARManager />
-        </TabsContent>
-
-        <TabsContent value="biometric">
-          <BiometricManager />
         </TabsContent>
 
         <TabsContent value="security">

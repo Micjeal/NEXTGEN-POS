@@ -45,12 +45,14 @@ export function SentMessages() {
   }
 
   const getRecipientDisplay = (message: Message) => {
-    if (message.recipient_id) {
+    if (message.message_type === "broadcast") {
+      return "Broadcast to All Users"
+    } else if (message.recipient_id) {
       return "Direct Message"
     } else if (message.recipient_role) {
       return `All ${message.recipient_role}s`
     } else {
-      return "Broadcast"
+      return "Unknown"
     }
   }
 

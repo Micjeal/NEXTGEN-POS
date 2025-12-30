@@ -1,10 +1,11 @@
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { PurchaseOrdersTable } from "@/components/purchase-orders/purchase-orders-table"
 import { AddPurchaseOrderDialog } from "@/components/purchase-orders/add-purchase-order-dialog"
 import type { PurchaseOrder, Supplier } from "@/lib/types/database"
 import { redirect } from "next/navigation"
 
 export default async function PurchaseOrdersPage() {
+  // Use user client for authentication
   const supabase = await createClient()
 
   // Get current user
@@ -29,7 +30,11 @@ export default async function PurchaseOrdersPage() {
     redirect("/dashboard")
   }
 
-  const { data: purchaseOrders } = await supabase
+  // Use service client for data fetching (bypasses RLS)
+  const serviceClient = createServiceClient()
+
+  // Fetch purchase orders with related data
+  const { data: purchaseOrders } = await serviceClient
     .from("purchase_orders")
     .select(`
       *,
@@ -39,7 +44,8 @@ export default async function PurchaseOrdersPage() {
     `)
     .order("created_at", { ascending: false })
 
-  const { data: suppliers } = await supabase
+  // Fetch active suppliers
+  const { data: suppliers } = await serviceClient
     .from("suppliers")
     .select("*")
     .eq("is_active", true)

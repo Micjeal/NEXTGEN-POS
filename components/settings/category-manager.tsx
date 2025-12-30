@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,9 +8,10 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
-import { Database, Plus, Edit, Trash2, Save, X } from "lucide-react"
+import { Database, Plus, Edit, Trash2, Save, X, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/lib/supabase/client"
+import { getUserPermissions } from "@/lib/utils"
 import type { Category } from "@/lib/types/database"
 
 interface CategoryManagerProps {
@@ -22,8 +23,60 @@ export function CategoryManager({ categories: initialCategories }: CategoryManag
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [formData, setFormData] = useState({ name: "", description: "" })
+  const [userPermissions, setUserPermissions] = useState<string[]>([])
+  const [isLoadingPermissions, setIsLoadingPermissions] = useState(true)
   const { toast } = useToast()
   const supabase = createClient()
+
+  useEffect(() => {
+    const loadPermissions = async () => {
+      const permissions = await getUserPermissions()
+      setUserPermissions(permissions)
+      setIsLoadingPermissions(false)
+    }
+    loadPermissions()
+  }, [])
+
+  const hasPermission = userPermissions.includes('manage_settings')
+
+  if (isLoadingPermissions) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            Product Categories
+          </CardTitle>
+          <CardDescription>Manage product categories in the system</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            <span className="ml-2">Loading permissions...</span>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (!hasPermission) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            Product Categories
+          </CardTitle>
+          <CardDescription>Manage product categories in the system</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center py-8">
+            <p className="text-muted-foreground">You don't have permission to manage categories.</p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
 
   const resetForm = () => {
     setFormData({ name: "", description: "" })

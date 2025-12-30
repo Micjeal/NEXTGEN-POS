@@ -1,5 +1,6 @@
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { NextRequest, NextResponse } from "next/server"
+import { requirePermission } from "@/lib/utils/permissions"
 
 // POST /api/suppliers - Create a new supplier
 export async function POST(request: NextRequest) {
@@ -9,6 +10,18 @@ export async function POST(request: NextRequest) {
 
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Check user role - supplier management requires manager/admin
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*, role:roles(*)')
+      .eq('id', user.id)
+      .single()
+
+    const userRole = profile?.role?.name
+    if (userRole !== 'admin' && userRole !== 'manager') {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
     const { name, contact_person, phone, email, address, city, country, tax_id, payment_terms, credit_limit, supplier_category, rating, notes, is_active } = await request.json()
@@ -46,7 +59,8 @@ export async function POST(request: NextRequest) {
       is_active: is_active ?? true,
     }
 
-    const { data: supplier, error: insertError } = await supabase
+    const serviceClient = createServiceClient()
+    const { data: supplier, error: insertError } = await serviceClient
       .from("suppliers")
       .insert(supplierData)
       .select()
@@ -80,10 +94,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Check user role - supplier management requires manager/admin
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*, role:roles(*)')
+      .eq('id', user.id)
+      .single()
+
+    const userRole = profile?.role?.name
+    if (userRole !== 'admin' && userRole !== 'manager') {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
+    }
+
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search')
 
-    let query = supabase
+    const serviceClient = createServiceClient()
+    let query = serviceClient
       .from("suppliers")
       .select("*")
       .order("created_at", { ascending: false })
@@ -113,6 +140,18 @@ export async function PUT(request: NextRequest) {
 
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Check user role - supplier management requires manager/admin
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*, role:roles(*)')
+      .eq('id', user.id)
+      .single()
+
+    const userRole = profile?.role?.name
+    if (userRole !== 'admin' && userRole !== 'manager') {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
     const { id, name, contact_person, phone, email, address, city, country, tax_id, payment_terms, credit_limit, supplier_category, rating, notes, is_active } = await request.json()
@@ -156,7 +195,8 @@ export async function PUT(request: NextRequest) {
       updated_at: new Date().toISOString(),
     }
 
-    const { data: supplier, error: updateError } = await supabase
+    const serviceClient = createServiceClient()
+    const { data: supplier, error: updateError } = await serviceClient
       .from("suppliers")
       .update(supplierData)
       .eq("id", id)
@@ -198,9 +238,11 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Supplier ID is required" }, { status: 400 })
     }
 
+    const serviceClient = createServiceClient()
+
     // Perform cascade deletion - delete related records first
     // Get all purchase order IDs for this supplier
-    const { data: purchaseOrders, error: fetchOrdersError } = await supabase
+    const { data: purchaseOrders, error: fetchOrdersError } = await serviceClient
       .from("purchase_orders")
       .select("id")
       .eq("supplier_id", id)
@@ -213,7 +255,7 @@ export async function DELETE(request: NextRequest) {
     // Delete purchase order items for these orders (due to foreign key constraints)
     if (purchaseOrders && purchaseOrders.length > 0) {
       const orderIds = purchaseOrders.map(order => order.id)
-      const { error: deleteOrderItemsError } = await supabase
+      const { error: deleteOrderItemsError } = await serviceClient
         .from("purchase_order_items")
         .delete()
         .in("purchase_order_id", orderIds)
@@ -224,7 +266,7 @@ export async function DELETE(request: NextRequest) {
       }
 
       // Delete purchase orders
-      const { error: deleteOrdersError } = await supabase
+      const { error: deleteOrdersError } = await serviceClient
         .from("purchase_orders")
         .delete()
         .eq("supplier_id", id)
@@ -236,7 +278,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Delete supplier products
-    const { error: deleteSupplierProductsError } = await supabase
+    const { error: deleteSupplierProductsError } = await serviceClient
       .from("supplier_products")
       .delete()
       .eq("supplier_id", id)
@@ -247,7 +289,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Finally delete the supplier
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await serviceClient
       .from("suppliers")
       .delete()
       .eq("id", id)

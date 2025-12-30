@@ -1,17 +1,29 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend } from "recharts"
 import { TrendingUp, TrendingDown, Package, AlertTriangle, PieChart as PieChartIcon } from "lucide-react"
 
 interface DashboardChartsProps {
-  monthlySales: Array<{ month: string; sales: number; growth: number }>
+  salesData: Array<{ period: string; sales: number; growth: number }>
+  granularity: 'monthly' | 'daily' | 'hourly'
   topProducts: Array<{ name: string; sales: number; revenue: number }>
-  productPerformance: Array<{ name: string; performance: 'high' | 'medium' | 'low'; stockRecommendation: string }>
+  productPerformance: Array<{ name: string; performance: 'high' | 'medium' | 'low'; stockRecommendation: string; predictedDemand?: number; confidence?: number; riskLevel?: string }>
+  currency: string
 }
 
-export function DashboardCharts({ monthlySales, topProducts, productPerformance }: DashboardChartsProps) {
+export function DashboardCharts({ salesData, granularity, topProducts, productPerformance, currency }: DashboardChartsProps) {
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#84CC16']
+
+  const formatCurrency = (amount: number) => {
+    const locale = currency === "UGX" ? "en-UG" : "en-US"
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: currency,
+    }).format(amount)
+  }
 
   return (
     <div className="space-y-8">
@@ -22,16 +34,16 @@ export function DashboardCharts({ monthlySales, topProducts, productPerformance 
             <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
               <TrendingUp className="h-6 w-6 text-blue-600 dark:text-blue-400" />
             </div>
-            Monthly Sales Trend
+            Sales Trend ({granularity.charAt(0).toUpperCase() + granularity.slice(1)})
           </CardTitle>
           <p className="text-sm text-muted-foreground">Track sales performance and growth over time</p>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={350}>
-            <LineChart data={monthlySales} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+            <LineChart data={salesData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
               <XAxis
-                dataKey="month"
+                dataKey="period"
                 axisLine={false}
                 tickLine={false}
                 className="text-sm"
@@ -49,7 +61,7 @@ export function DashboardCharts({ monthlySales, topProducts, productPerformance 
                   boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
                 }}
                 formatter={(value: any, name: string) => [
-                  `$${Number(value).toLocaleString()}`,
+                  formatCurrency(Number(value)),
                   name === 'sales' ? 'Sales' : name
                 ]}
                 labelStyle={{ color: 'hsl(var(--foreground))' }}
@@ -126,27 +138,79 @@ export function DashboardCharts({ monthlySales, topProducts, productPerformance 
               </div>
               Product Performance & Stock Recommendations
             </CardTitle>
-            <p className="text-sm text-muted-foreground">AI-powered inventory insights</p>
+            <p className="text-sm text-muted-foreground">AI-powered inventory insights with predictive analytics</p>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3 max-h-80 overflow-y-auto">
+            <div className="space-y-4 max-h-96 overflow-y-auto">
               {productPerformance.map((product, index) => (
-                <div key={index} className="flex items-center justify-between p-4 border border-amber-200 dark:border-amber-800 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
-                  <div className="flex-1">
-                    <p className="font-semibold text-foreground">{product.name}</p>
-                    <p className="text-sm text-muted-foreground">{product.stockRecommendation}</p>
+                <div key={index} className="p-4 border border-amber-200 dark:border-amber-800 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <p className="font-semibold text-foreground">{product.name}</p>
+                      <p className="text-sm text-muted-foreground mt-1">{product.stockRecommendation}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {product.performance === 'high' && <TrendingUp className="h-5 w-5 text-green-500" />}
+                      {product.performance === 'medium' && <BarChart className="h-5 w-5 text-yellow-500" />}
+                      {product.performance === 'low' && <TrendingDown className="h-5 w-5 text-red-500" />}
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                        product.performance === 'high' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
+                        product.performance === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
+                        'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                      }`}>
+                        {product.performance.toUpperCase()}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    {product.performance === 'high' && <TrendingUp className="h-5 w-5 text-green-500" />}
-                    {product.performance === 'medium' && <BarChart className="h-5 w-5 text-yellow-500" />}
-                    {product.performance === 'low' && <TrendingDown className="h-5 w-5 text-red-500" />}
-                    <span className={`text-xs px-3 py-1.5 rounded-full font-medium ${
-                      product.performance === 'high' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
-                      product.performance === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
-                      'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                    }`}>
-                      {product.performance.toUpperCase()}
-                    </span>
+
+                  {/* Predictive Insights */}
+                  {(product.predictedDemand || product.confidence) && (
+                    <div className="grid grid-cols-2 gap-4 mb-3">
+                      {product.predictedDemand && (
+                        <div className="text-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                          <p className="text-xs text-muted-foreground">Predicted Demand</p>
+                          <p className="font-semibold text-blue-700 dark:text-blue-300">{product.predictedDemand} units/week</p>
+                        </div>
+                      )}
+                      {product.confidence && (
+                        <div className="text-center p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                          <p className="text-xs text-muted-foreground">AI Confidence</p>
+                          <div className="flex items-center justify-center gap-2">
+                            <div className="w-16 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-gradient-to-r from-purple-400 to-purple-600 transition-all duration-300"
+                                style={{ width: `${product.confidence}%` }}
+                              />
+                            </div>
+                            <span className="text-xs font-semibold text-purple-700 dark:text-purple-300">{product.confidence}%</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Risk Level and Actions */}
+                  <div className="flex items-center justify-between">
+                    {product.riskLevel && product.riskLevel !== 'low' && (
+                      <Badge variant="destructive" className="text-xs">
+                        {product.riskLevel === 'high' ? 'Critical Risk' : 'Medium Risk'}
+                      </Badge>
+                    )}
+                    <div className="flex gap-2 ml-auto">
+                      {product.performance === 'high' && (
+                        <Button size="sm" variant="outline" className="text-xs h-7">
+                          Order More
+                        </Button>
+                      )}
+                      {product.performance === 'low' && (
+                        <Button size="sm" variant="outline" className="text-xs h-7">
+                          Reduce Stock
+                        </Button>
+                      )}
+                      <Button size="sm" variant="ghost" className="text-xs h-7">
+                        View Details
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -194,7 +258,7 @@ export function DashboardCharts({ monthlySales, topProducts, productPerformance 
                     borderRadius: '8px',
                     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
                   }}
-                  formatter={(value: any) => [`$${Number(value).toLocaleString()}`, 'Revenue']}
+                  formatter={(value: any) => [formatCurrency(Number(value)), 'Revenue']}
                   labelStyle={{ color: 'hsl(var(--foreground))' }}
                 />
                 <Legend
@@ -217,7 +281,7 @@ export function DashboardCharts({ monthlySales, topProducts, productPerformance 
                     <span className="font-medium">{product.name}</span>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold">${product.revenue.toLocaleString()}</p>
+                    <p className="font-semibold">{formatCurrency(product.revenue)}</p>
                     <p className="text-sm text-muted-foreground">{product.sales} units</p>
                   </div>
                 </div>

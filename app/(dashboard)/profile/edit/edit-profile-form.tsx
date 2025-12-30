@@ -160,7 +160,7 @@ export function EditProfileForm({ profile }: EditProfileFormProps) {
                   )}
                 </div>
                 <div className="flex-1">
-                  <Label className="text-sm font-medium">Profile Picture</Label>
+                  <Label htmlFor="profile-image" className="text-sm font-medium">Profile Picture</Label>
                   <p className="text-sm text-muted-foreground mb-3">
                     Upload a new profile picture (optional)
                   </p>
@@ -171,6 +171,7 @@ export function EditProfileForm({ profile }: EditProfileFormProps) {
                       onChange={handleImageChange}
                       className="hidden"
                       id="profile-image"
+                      aria-label="Upload profile picture"
                     />
                     <Button
                       type="button"

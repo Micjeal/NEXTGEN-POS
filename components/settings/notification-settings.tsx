@@ -46,8 +46,31 @@ export function NotificationSettings() {
 
   const fetchNotificationSettings = async () => {
     try {
-      // In a real app, you'd fetch settings from the database
-      // For now, we'll use the default state
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Fetch email settings from database
+      const { data: emailSettings, error } = await supabase
+        .from('email_settings')
+        .select('*')
+        .eq('user_id', user.id)
+
+      if (error) throw error
+
+      // Map database settings to component state
+      const settingsMap: Record<string, boolean> = {}
+      emailSettings?.forEach(setting => {
+        settingsMap[setting.email_type] = setting.enabled
+      })
+
+      setSettings(prev => ({
+        ...prev,
+        lowStockAlerts: settingsMap.low_stock || false,
+        transactionAlerts: settingsMap.transaction_alert || false,
+        systemUpdates: settingsMap.system_updates || false,
+        weeklyReports: settingsMap.weekly_report || false,
+        marketingEmails: settingsMap.marketing || false,
+      }))
     } catch (error) {
       console.error('Error fetching notification settings:', error)
     }
@@ -57,15 +80,41 @@ export function NotificationSettings() {
     setIsLoading(true)
 
     try {
-      // In a real app, you'd save to the database
-      // For demo purposes, we'll just simulate success
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('User not authenticated')
+
+      // Prepare settings to save
+      const settingsToSave = [
+        { email_type: 'low_stock', enabled: settings.lowStockAlerts, frequency: 'immediate' },
+        { email_type: 'out_of_stock', enabled: settings.lowStockAlerts, frequency: 'immediate' }, // Using same switch for now
+        { email_type: 'transaction_alert', enabled: settings.transactionAlerts, frequency: 'immediate' },
+        { email_type: 'system_updates', enabled: settings.systemUpdates, frequency: 'immediate' },
+        { email_type: 'weekly_report', enabled: settings.weeklyReports, frequency: 'weekly' },
+        { email_type: 'marketing', enabled: settings.marketingEmails, frequency: 'weekly' },
+      ]
+
+      // Upsert each setting
+      for (const setting of settingsToSave) {
+        const { error } = await supabase
+          .from('email_settings')
+          .upsert({
+            user_id: user.id,
+            email_type: setting.email_type,
+            enabled: setting.enabled,
+            frequency: setting.frequency,
+          }, {
+            onConflict: 'user_id,email_type'
+          })
+
+        if (error) throw error
+      }
 
       toast({
         title: "Success",
         description: "Notification preferences have been saved",
       })
     } catch (error) {
+      console.error('Error saving notification settings:', error)
       toast({
         title: "Error",
         description: "Failed to save notification preferences",

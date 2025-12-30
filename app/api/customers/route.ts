@@ -1,25 +1,32 @@
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { NextRequest, NextResponse } from "next/server"
 
 // POST /api/customers - Create a new customer
 export async function POST(request: NextRequest) {
   try {
-    // Check if the requester is authenticated
+    console.log("Starting customer creation")
     const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    console.log("Supabase client created")
 
+    // Get current user for authentication
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    console.log("Auth check result:", { user: !!user, authError: authError?.message })
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const serviceClient = createServiceClient()
+
+    console.log("Parsing request body")
     const { phone, full_name, email, date_of_birth, gender, address, city, country, notes } = await request.json()
+    console.log("Request parsed:", { phone, full_name, email })
 
     if (!phone || !full_name) {
       return NextResponse.json({ error: "Phone and full name are required" }, { status: 400 })
     }
 
     // Check if customer with this phone already exists
-    const { data: existingCustomer } = await supabase
+    const { data: existingCustomer } = await serviceClient
       .from("customers")
       .select("id")
       .eq("phone", phone)
@@ -27,6 +34,24 @@ export async function POST(request: NextRequest) {
 
     if (existingCustomer) {
       return NextResponse.json({ error: "Customer with this phone number already exists" }, { status: 400 })
+    }
+
+    console.log("Phone uniqueness check passed")
+
+    // Check if email is provided and already exists
+    if (email) {
+      const { data: existingEmailCustomer } = await serviceClient
+        .from("customers")
+        .select("id")
+        .eq("email", email)
+        .single()
+
+      if (existingEmailCustomer) {
+        return NextResponse.json({
+          error: "Customer with this email address already exists",
+          field: "email"
+        }, { status: 400 })
+      }
     }
 
     // Create customer - handle empty strings for optional fields
@@ -47,7 +72,7 @@ export async function POST(request: NextRequest) {
       first_visit_date: new Date().toISOString(),
     }
 
-    const { data: customer, error: insertError } = await supabase
+    const { data: customer, error: insertError } = await serviceClient
       .from("customers")
       .insert(customerData)
       .select()
@@ -57,6 +82,7 @@ export async function POST(request: NextRequest) {
       console.error("Database insert error:", insertError)
       return NextResponse.json({ error: insertError.message }, { status: 500 })
     }
+
 
     // Send welcome email if customer has email address
     if (customer.email) {
@@ -102,16 +128,34 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const serviceClient = createServiceClient()
+
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search')
+    const excludeEnrolled = searchParams.get('excludeEnrolled') === 'true'
 
-    let query = supabase
+    // If excludeEnrolled is true, get enrolled customer IDs first
+    let enrolledCustomerIds: string[] = []
+    if (excludeEnrolled) {
+      const { data: enrolledAccounts } = await serviceClient
+        .from('customer_loyalty_accounts')
+        .select('customer_id')
+
+      enrolledCustomerIds = enrolledAccounts?.map(a => a.customer_id) || []
+    }
+
+    let query = serviceClient
       .from("customers")
       .select("*")
       .order("created_at", { ascending: false })
 
     if (search) {
       query = query.or(`full_name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%`)
+    }
+
+    // If excludeEnrolled is true, filter out customers who already have loyalty accounts
+    if (excludeEnrolled && enrolledCustomerIds.length > 0) {
+      query = query.not('id', 'in', `(${enrolledCustomerIds.join(',')})`)
     }
 
     const { data: customers, error } = await query

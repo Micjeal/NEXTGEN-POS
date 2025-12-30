@@ -65,7 +65,7 @@ export default async function UserSalesPage({ params }: PageProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${sales?.reduce((sum, sale) => sum + sale.total, 0).toFixed(2) || "0.00"}
+              UGX {sales?.reduce((sum, sale) => sum + sale.total, 0).toFixed(2) || "0.00"}
             </div>
           </CardContent>
         </Card>
@@ -75,7 +75,7 @@ export default async function UserSalesPage({ params }: PageProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${sales?.length ? (sales.reduce((sum, sale) => sum + sale.total, 0) / sales.length).toFixed(2) : "0.00"}
+              UGX {sales?.length ? (sales.reduce((sum, sale) => sum + sale.total, 0) / sales.length).toFixed(2) : "0.00"}
             </div>
           </CardContent>
         </Card>
@@ -98,7 +98,7 @@ export default async function UserSalesPage({ params }: PageProps) {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold">${sale.total.toFixed(2)}</p>
+                      <p className="font-bold">UGX {sale.total.toFixed(2)}</p>
                       <p className="text-sm text-muted-foreground capitalize">{sale.status}</p>
                     </div>
                   </div>

@@ -1,5 +1,68 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+
+// GET /api/products - Get all products (with optional search and filters)
+export async function GET(request: NextRequest) {
+  try {
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Check user role from profiles table
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*, role:roles(*)')
+      .eq('id', user.id)
+      .single()
+
+    const userRole = profile?.role?.name
+    if (!['admin', 'manager', 'cashier'].includes(userRole || '')) {
+      return NextResponse.json({ error: 'Admin, Manager, or Cashier access required' }, { status: 403 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const search = searchParams.get('search')
+    const category = searchParams.get('category')
+    const active = searchParams.get('active')
+
+    const serviceClient = createServiceClient()
+    let query = serviceClient
+      .from('products')
+      .select(`
+        *,
+        category:categories(*),
+        inventory(*)
+      `)
+      .order('name')
+
+    if (search) {
+      query = query.ilike('name', `%${search}%`)
+    }
+
+    if (category) {
+      query = query.eq('category_id', category)
+    }
+
+    if (active !== null) {
+      query = query.eq('is_active', active === 'true')
+    }
+
+    const { data: products, error } = await query
+
+    if (error) {
+      console.error('Error fetching products:', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ products: products || [] })
+  } catch (error) {
+    console.error('Get products error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,21 +99,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check user role
-    const { data: profile, error: roleError } = await supabase
+    // Check user role from profiles table (allow all authenticated users to view products)
+    const { data: profile } = await supabase
       .from('profiles')
       .select('*, role:roles(*)')
       .eq('id', user.id)
       .single()
 
-    if (roleError || !profile) {
-      return NextResponse.json({ error: 'User profile not found' }, { status: 403 })
-    }
-
-    const userRole = profile.role?.name
-    if (!['admin', 'manager'].includes(userRole || '')) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
-    }
+    const userRole = profile?.role?.name
+    // All authenticated users can view products, no role restriction
 
     // Insert product
     const productData = {
@@ -64,7 +121,8 @@ export async function POST(request: NextRequest) {
       image_url: image_url || null,
     }
 
-    const { data: newProduct, error: insertError } = await supabase
+    const serviceClient = createServiceClient()
+    const { data: newProduct, error: insertError } = await serviceClient
       .from('products')
       .insert(productData)
       .select()
@@ -86,7 +144,7 @@ export async function POST(request: NextRequest) {
         is_preferred_supplier: is_preferred_supplier ?? false,
       }
 
-      const { error: supplierError } = await supabase
+      const { error: supplierError } = await serviceClient
         .from('supplier_products')
         .insert(supplierProductData)
 

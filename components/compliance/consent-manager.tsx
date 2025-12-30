@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -29,7 +28,6 @@ export function ConsentManager() {
   const [selectedType, setSelectedType] = useState<string>("all")
   const [showAddDialog, setShowAddDialog] = useState(false)
   const { toast } = useToast()
-  const supabase = createClient()
 
   useEffect(() => {
     loadConsents()
@@ -38,19 +36,23 @@ export function ConsentManager() {
   const loadConsents = async () => {
     try {
       setLoading(true)
-      let query = supabase
-        .from('consent_logs')
-        .select('*')
-        .order('consent_date', { ascending: false })
-
+      const params = new URLSearchParams()
       if (selectedType !== 'all') {
-        query = query.eq('consent_type', selectedType)
+        params.append('type', selectedType)
       }
 
-      const { data, error } = await query
+      const response = await fetch(`/api/consent?${params.toString()}`)
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
+      }
 
-      if (error) throw error
-      setConsents(data || [])
+      const result = await response.json()
+      if (result.error) {
+        throw new Error(result.error)
+      }
+
+      setConsents(result.data || [])
     } catch (error) {
       console.error('Error loading consents:', error)
       toast({
@@ -65,15 +67,26 @@ export function ConsentManager() {
 
   const updateConsent = async (consentId: string, consentGiven: boolean) => {
     try {
-      const { error } = await supabase
-        .from('consent_logs')
-        .update({
-          consent_given: consentGiven,
-          withdrawn_date: consentGiven ? null : new Date().toISOString()
-        })
-        .eq('id', consentId)
+      const response = await fetch('/api/consent', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          consentId,
+          consentGiven,
+        }),
+      })
 
-      if (error) throw error
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
+      }
+
+      const result = await response.json()
+      if (result.error) {
+        throw new Error(result.error)
+      }
 
       toast({
         title: "Success",

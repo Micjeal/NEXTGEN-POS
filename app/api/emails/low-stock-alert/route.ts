@@ -64,10 +64,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Get low stock alert template
+    console.log('Fetching low stock alert templates...')
     const templates = await emailService.getTemplatesByCategory('alerts')
+    console.log('Found alert templates:', templates.map(t => t.name))
     const lowStockTemplate = templates.find(t => t.name === 'Low Stock Alert')
+    console.log('Low stock template found:', !!lowStockTemplate)
 
     if (!lowStockTemplate) {
+      console.error('Low stock alert template not found in DB')
       return NextResponse.json({ error: 'Low stock alert template not found' }, { status: 500 })
     }
 

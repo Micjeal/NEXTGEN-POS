@@ -22,6 +22,11 @@ export async function POST(request: NextRequest) {
 
     console.log('Request body:', { templateId, recipientEmail, recipientName, variables })
 
+    // Check if templateId looks like a demo ID (string number)
+    if (/^\d+$/.test(templateId)) {
+      console.log('Demo template ID detected, this may not exist in DB')
+    }
+
     if (!templateId || !recipientEmail) {
       return NextResponse.json({
         error: 'Template ID and recipient email are required'

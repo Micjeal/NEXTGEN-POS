@@ -1,260 +1,283 @@
 "use client"
 
 import { useState } from "react"
-import { Search, User, UserPlus, Star, Phone } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { createClient } from "@/lib/supabase/client"
-import { useToast } from "@/hooks/use-toast"
-import type { Customer } from "@/lib/types/database"
+import { Search, User, Star, X, Phone, Mail } from "lucide-react"
+import { formatCurrency } from "@/lib/utils/cart"
 
-interface CustomerLookupProps {
-  selectedCustomer: Customer | null
-  onCustomerSelect: (customer: Customer | null) => void
+interface Customer {
+  id: string
+  phone: string | null
+  email: string | null
+  full_name: string
+  membership_tier: string
+  total_spent: number
+  total_visits: number
+  last_visit_date: string | null
 }
 
-export function CustomerLookup({ selectedCustomer, onCustomerSelect }: CustomerLookupProps) {
-  const [searchPhone, setSearchPhone] = useState("")
-  const [searchResults, setSearchResults] = useState<Customer[]>([])
+interface LoyaltyInfo {
+  current_points: number
+  tier: string
+  loyalty_program: {
+    name: string
+    points_per_currency: number
+    redemption_rate: number
+  }
+}
+
+interface CustomerLookupProps {
+  onCustomerSelected: (customer: Customer, loyaltyInfo?: LoyaltyInfo) => void
+  selectedCustomer?: Customer | null
+  onClearCustomer: () => void
+  currency: string
+}
+
+export function CustomerLookup({
+  onCustomerSelected,
+  selectedCustomer,
+  onClearCustomer,
+  currency
+}: CustomerLookupProps) {
+  const [searchTerm, setSearchTerm] = useState("")
   const [isSearching, setIsSearching] = useState(false)
-  const [showRegisterDialog, setShowRegisterDialog] = useState(false)
-  const [newCustomer, setNewCustomer] = useState({
-    full_name: "",
-    phone: "",
-    email: ""
-  })
+  const [searchResults, setSearchResults] = useState<{
+    customer: Customer | null
+    registeredCustomer: any | null
+    loyaltyInfo: LoyaltyInfo | null
+    hasPurchased: boolean
+  } | null>(null)
+  const [error, setError] = useState("")
 
-  const { toast } = useToast()
-  const supabase = createClient()
-
-  const searchCustomer = async () => {
-    if (!searchPhone.trim()) return
+  const handleSearch = async () => {
+    if (!searchTerm.trim()) return
 
     setIsSearching(true)
+    setError("")
+
     try {
-      const { data, error } = await supabase
-        .from("customers")
-        .select("*")
-        .eq("phone", searchPhone.trim())
-        .eq("is_active", true)
-        .single()
-
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
-        throw error
-      }
-
-      if (data) {
-        setSearchResults([data])
-        onCustomerSelect(data)
-        toast({
-          title: "Customer Found",
-          description: `Welcome back, ${data.full_name}!`,
-        })
+      // Determine if search term is email or phone
+      const isEmail = searchTerm.includes('@')
+      const params = new URLSearchParams()
+      if (isEmail) {
+        params.set('email', searchTerm.trim())
       } else {
-        setSearchResults([])
-        toast({
-          title: "Customer Not Found",
-          description: "Would you like to register this customer?",
-          variant: "default",
-        })
-        setShowRegisterDialog(true)
+        params.set('phone', searchTerm.trim())
       }
-    } catch (error: any) {
-      console.error('Search error:', error)
-      toast({
-        title: "Search Error",
-        description: "Failed to search for customer",
-        variant: "destructive",
-      })
+
+      const response = await fetch(`/api/customers/lookup?${params}`)
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Search failed')
+      }
+
+      setSearchResults(data)
+    } catch (err: any) {
+      setError(err.message)
+      setSearchResults(null)
     } finally {
       setIsSearching(false)
     }
   }
 
-  const registerCustomer = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("customers")
-        .insert({
-          full_name: newCustomer.full_name,
-          phone: newCustomer.phone || searchPhone,
-          email: newCustomer.email || null,
-        })
-        .select()
-        .single()
-
-      if (error) throw error
-
-      toast({
-        title: "Customer Registered",
-        description: `${data.full_name} has been registered successfully!`,
-      })
-
-      onCustomerSelect(data)
-      setShowRegisterDialog(false)
-      setNewCustomer({ full_name: "", phone: "", email: "" })
-      setSearchPhone("")
-    } catch (error: any) {
-      console.error('Registration error:', error)
-      toast({
-        title: "Registration Failed",
-        description: error?.message || "Failed to register customer",
-        variant: "destructive",
-      })
+  const handleSelectCustomer = () => {
+    if (searchResults?.customer) {
+      onCustomerSelected(searchResults.customer, searchResults.loyaltyInfo || undefined)
+      setSearchTerm("")
+      setSearchResults(null)
+    } else if (searchResults?.registeredCustomer) {
+      // Create pseudo customer for registered customer
+      const customer: Customer = {
+        id: searchResults.registeredCustomer.id,
+        phone: searchResults.registeredCustomer.phone,
+        email: searchResults.registeredCustomer.email,
+        full_name: searchResults.registeredCustomer.full_name,
+        membership_tier: 'bronze',
+        total_spent: 0,
+        total_visits: 0,
+        last_visit_date: null
+      }
+      onCustomerSelected(customer, undefined)
+      setSearchTerm("")
+      setSearchResults(null)
     }
   }
 
-  const clearCustomer = () => {
-    onCustomerSelect(null)
-    setSearchPhone("")
-    setSearchResults([])
+  const handleClear = () => {
+    setSearchTerm("")
+    setSearchResults(null)
+    setError("")
+    onClearCustomer()
+  }
+
+  if (selectedCustomer) {
+    return (
+      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border-blue-200 dark:border-blue-800">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <User className="h-5 w-5 text-blue-600" />
+              Selected Customer
+            </CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClear}
+              className="h-8 w-8 p-0"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-lg">{selectedCustomer.full_name}</p>
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                {selectedCustomer.phone && (
+                  <span className="flex items-center gap-1">
+                    <Phone className="h-3 w-3" />
+                    {selectedCustomer.phone}
+                  </span>
+                )}
+                {selectedCustomer.email && (
+                  <span className="flex items-center gap-1">
+                    <Mail className="h-3 w-3" />
+                    {selectedCustomer.email}
+                  </span>
+                )}
+              </div>
+            </div>
+            <Badge variant={
+              selectedCustomer.membership_tier === 'platinum' ? 'default' :
+              selectedCustomer.membership_tier === 'gold' ? 'secondary' :
+              selectedCustomer.membership_tier === 'silver' ? 'outline' : 'outline'
+            } className="capitalize">
+              {selectedCustomer.membership_tier}
+            </Badge>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p className="text-muted-foreground">Total Spent</p>
+              <p className="font-semibold">{formatCurrency(selectedCustomer.total_spent, currency)}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Total Visits</p>
+              <p className="font-semibold">{selectedCustomer.total_visits}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
-    <Card className="mb-6">
-      <CardHeader className="pb-4">
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <User className="h-5 w-5" />
-          Customer Information
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg flex items-center gap-2">
+          <Search className="h-5 w-5" />
+          Customer Lookup
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {selectedCustomer ? (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                  <User className="h-5 w-5 text-green-600 dark:text-green-400" />
-                </div>
-                <div>
-                  <p className="font-semibold text-green-800 dark:text-green-200">{selectedCustomer.full_name}</p>
-                  <p className="text-sm text-green-600 dark:text-green-400">{selectedCustomer.phone}</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <Badge variant="secondary" className="mb-1">
-                  {selectedCustomer.membership_tier} member
-                </Badge>
-                <p className="text-sm text-muted-foreground">
-                  Total spent: UGX {selectedCustomer.total_spent?.toLocaleString() || '0'}
-                </p>
-              </div>
-            </div>
-
-            {/* Loyalty Points Display */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
-                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">0</div>
-                <div className="text-sm text-blue-600 dark:text-blue-400">Loyalty Points</div>
-              </div>
-              <div className="text-center p-3 bg-purple-50 dark:bg-purple-950/20 rounded-lg">
-                <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                  {selectedCustomer.total_visits || 0}
-                </div>
-                <div className="text-sm text-purple-600 dark:text-purple-400">Total Visits</div>
-              </div>
-            </div>
-
-            <Button onClick={clearCustomer} variant="outline" className="w-full">
-              Change Customer
+        <div className="space-y-2">
+          <Label htmlFor="customer-search">Search by Phone or Email</Label>
+          <div className="flex gap-2">
+            <Input
+              id="customer-search"
+              placeholder="Enter phone number or email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+            />
+            <Button
+              onClick={handleSearch}
+              disabled={isSearching || !searchTerm.trim()}
+              variant="outline"
+            >
+              <Search className="h-4 w-4" />
             </Button>
           </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="phone">Customer Phone Number</Label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="phone"
-                    placeholder="Enter phone number (e.g., +256700000000)"
-                    value={searchPhone}
-                    onChange={(e) => setSearchPhone(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && searchCustomer()}
-                    className="pl-9"
-                  />
-                </div>
-                <Button onClick={searchCustomer} disabled={isSearching || !searchPhone.trim()}>
-                  {isSearching ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  ) : (
-                    <Search className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-            </div>
+        </div>
 
-            <div className="flex gap-2">
-              <Button
-                onClick={() => setShowRegisterDialog(true)}
-                variant="outline"
-                className="flex-1"
-              >
-                <UserPlus className="h-4 w-4 mr-2" />
-                Register New Customer
-              </Button>
-            </div>
+        {error && (
+          <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-600 text-sm">
+            {error}
           </div>
         )}
 
-        {/* Customer Registration Dialog */}
-        <Dialog open={showRegisterDialog} onOpenChange={setShowRegisterDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Register New Customer</DialogTitle>
-              <DialogDescription>
-                Add a new customer to the system for loyalty tracking and personalized service.
-              </DialogDescription>
-            </DialogHeader>
+        {searchResults && (
+          <div className="space-y-3">
+            {searchResults.customer ? (
+              <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-semibold flex items-center gap-2">
+                    <User className="h-4 w-4 text-green-600" />
+                    {searchResults.customer.full_name}
+                  </h4>
+                  <Badge variant={
+                    searchResults.customer.membership_tier === 'platinum' ? 'default' :
+                    searchResults.customer.membership_tier === 'gold' ? 'secondary' :
+                    searchResults.customer.membership_tier === 'silver' ? 'outline' : 'outline'
+                  } className="capitalize">
+                    {searchResults.customer.membership_tier}
+                  </Badge>
+                </div>
 
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="reg-name">Full Name</Label>
-                <Input
-                  id="reg-name"
-                  value={newCustomer.full_name}
-                  onChange={(e) => setNewCustomer(prev => ({ ...prev, full_name: e.target.value }))}
-                  placeholder="Enter customer's full name"
-                />
-              </div>
+                <div className="grid grid-cols-2 gap-4 text-sm mb-3">
+                  <div>
+                    <p className="text-muted-foreground">Total Spent</p>
+                    <p className="font-semibold">{formatCurrency(searchResults.customer.total_spent, currency)}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Total Visits</p>
+                    <p className="font-semibold">{searchResults.customer.total_visits}</p>
+                  </div>
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="reg-phone">Phone Number</Label>
-                <Input
-                  id="reg-phone"
-                  value={newCustomer.phone || searchPhone}
-                  onChange={(e) => setNewCustomer(prev => ({ ...prev, phone: e.target.value }))}
-                  placeholder="Enter phone number"
-                />
-              </div>
+                {searchResults.loyaltyInfo && (
+                  <div className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400 mb-3">
+                    <Star className="h-4 w-4" />
+                    <span>{searchResults.loyaltyInfo.current_points.toLocaleString()} points available</span>
+                  </div>
+                )}
 
-              <div className="space-y-2">
-                <Label htmlFor="reg-email">Email (Optional)</Label>
-                <Input
-                  id="reg-email"
-                  type="email"
-                  value={newCustomer.email}
-                  onChange={(e) => setNewCustomer(prev => ({ ...prev, email: e.target.value }))}
-                  placeholder="Enter email address"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-4">
-                <Button variant="outline" onClick={() => setShowRegisterDialog(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={registerCustomer} disabled={!newCustomer.full_name.trim()}>
-                  Register Customer
+                <Button onClick={handleSelectCustomer} className="w-full">
+                  Select This Customer
                 </Button>
               </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+            ) : searchResults.registeredCustomer ? (
+              <div className="p-4 border rounded-lg bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800">
+                <div className="flex items-center gap-2 mb-2">
+                  <User className="h-4 w-4 text-yellow-600" />
+                  <h4 className="font-semibold">{searchResults.registeredCustomer.full_name}</h4>
+                  <Badge variant="outline">Registered - No Purchases Yet</Badge>
+                </div>
+
+                <p className="text-sm text-muted-foreground mb-3">
+                  This customer is registered but hasn't made any purchases yet.
+                  They will be automatically added to the customer database when this sale is completed.
+                </p>
+
+                <Button onClick={handleSelectCustomer} className="w-full">
+                  Select This Customer
+                </Button>
+              </div>
+            ) : (
+              <div className="p-4 border rounded-lg bg-gray-50 dark:bg-gray-950/20 border-gray-200 dark:border-gray-800">
+                <p className="text-sm text-muted-foreground">
+                  No customer found. You can proceed with the sale as a guest, or ask the customer to register.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   )

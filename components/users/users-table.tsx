@@ -114,7 +114,8 @@ export function UsersTable({ profiles, roles }: UsersTableProps) {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
+          <div className="overflow-x-auto">
+            <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
@@ -147,7 +148,7 @@ export function UsersTable({ profiles, roles }: UsersTableProps) {
                         {profile.is_active ? "Active" : "Inactive"}
                       </Badge>
                     </TableCell>
-                    <TableCell>{new Date(profile.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell>{profile.created_at}</TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -165,7 +166,8 @@ export function UsersTable({ profiles, roles }: UsersTableProps) {
                 ))
               )}
             </TableBody>
-          </Table>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 

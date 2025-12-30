@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,95 +12,144 @@ import { Separator } from "@/components/ui/separator"
 import { Store, Upload, Save, RefreshCw, Package, Receipt, CreditCard, ScanLine, Settings } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
+interface SettingsState {
+   systemName: string
+   systemDescription: string
+   businessAddress: string
+   businessPhone: string
+   businessEmail: string
+   taxNumber: string
+   storeLogo: string
+   currency: string
+   timezone: string
+   lowStockThreshold: number
+   criticalStockThreshold: number
+   autoReorderEnabled: boolean
+   defaultReorderQuantity: number
+   receiptHeader: string
+   receiptFooter: string
+   showLogoOnReceipt: boolean
+   includeTaxDetails: boolean
+   receiptPaperSize: string
+   paymentGatewayEnabled: boolean
+   barcodeScannerEnabled: boolean
+   emailIntegrationEnabled: boolean
+   smsIntegrationEnabled: boolean
+   enableNotifications: boolean
+   enableAuditLog: boolean
+   autoBackup: boolean
+   maintenanceMode: boolean
+ }
+
+const defaultSettings: SettingsState = {
+   systemName: "POS System",
+   systemDescription: "Supermarket Management System",
+   businessAddress: "",
+   businessPhone: "",
+   businessEmail: "",
+   taxNumber: "",
+   storeLogo: "",
+   currency: "UGX",
+   timezone: "Africa/Kampala",
+   lowStockThreshold: 10,
+   criticalStockThreshold: 5,
+   autoReorderEnabled: false,
+   defaultReorderQuantity: 50,
+   receiptHeader: "Thank you for shopping with us!",
+   receiptFooter: "Visit us again soon!",
+   showLogoOnReceipt: true,
+   includeTaxDetails: true,
+   receiptPaperSize: "80mm",
+   paymentGatewayEnabled: true,
+   barcodeScannerEnabled: true,
+   emailIntegrationEnabled: false,
+   smsIntegrationEnabled: false,
+   enableNotifications: true,
+   enableAuditLog: true,
+   autoBackup: false,
+   maintenanceMode: false,
+ }
+
 export function SystemSettings() {
-  const [settings, setSettings] = useState({
-    // Store Details
-    systemName: "POS System",
-    systemDescription: "Supermarket Management System",
-    businessAddress: "",
-    businessPhone: "",
-    businessEmail: "",
-    taxNumber: "",
-    storeLogo: "",
-    currency: "UGX",
-    timezone: "Africa/Kampala",
+   const [settings, setSettings] = useState<SettingsState>(defaultSettings)
+   const [loading, setLoading] = useState(true)
+   const { toast } = useToast()
 
-    // Inventory Settings
-    lowStockThreshold: 10,
-    criticalStockThreshold: 5,
-    autoReorderEnabled: false,
-    defaultReorderQuantity: 50,
+  useEffect(() => {
+    loadSettings()
+  }, [])
 
-    // Receipt Settings
-    receiptHeader: "Thank you for shopping with us!",
-    receiptFooter: "Visit us again soon!",
-    showLogoOnReceipt: true,
-    includeTaxDetails: true,
-    receiptPaperSize: "80mm",
+  const loadSettings = async () => {
+    try {
+      const response = await fetch('/api/settings')
+      if (response.ok) {
+        const data = await response.json()
+        setSettings(data)
+      } else {
+        // Keep defaults if API fails
+        setSettings(defaultSettings)
+      }
+    } catch (error) {
+      console.error('Failed to load settings:', error)
+      // Keep defaults
+      setSettings(defaultSettings)
+    } finally {
+      setLoading(false)
+    }
+  }
 
-    // Integrations
-    paymentGatewayEnabled: true,
-    barcodeScannerEnabled: true,
-    emailIntegrationEnabled: false,
-    smsIntegrationEnabled: false,
+  const handleSave = async () => {
+    try {
+      const response = await fetch('/api/settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ settings }),
+      })
 
-    // System Preferences
-    enableNotifications: true,
-    enableAuditLog: true,
-    autoBackup: false,
-    maintenanceMode: false,
-  })
-
-  const { toast } = useToast()
-
-  const handleSave = () => {
-    // TODO: Save to database
-    toast({
-      title: "Settings Saved",
-      description: "System settings have been updated successfully.",
-    })
+      if (response.ok) {
+        // Reload settings to reflect changes
+        await loadSettings()
+        toast({
+          title: "Settings Saved",
+          description: "System settings have been updated successfully.",
+        })
+      } else {
+        const error = await response.json()
+        toast({
+          title: "Save Failed",
+          description: error.error || "Failed to save settings.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error('Save error:', error)
+      toast({
+        title: "Save Failed",
+        description: "An error occurred while saving settings.",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleReset = () => {
-    // Reset to defaults
-    setSettings({
-      // Store Details
-      systemName: "POS System",
-      systemDescription: "Supermarket Management System",
-      businessAddress: "",
-      businessPhone: "",
-      businessEmail: "",
-      taxNumber: "",
-      storeLogo: "",
-      currency: "UGX",
-      timezone: "Africa/Kampala",
-
-      // Inventory Settings
-      lowStockThreshold: 10,
-      criticalStockThreshold: 5,
-      autoReorderEnabled: false,
-      defaultReorderQuantity: 50,
-
-      // Receipt Settings
-      receiptHeader: "Thank you for shopping with us!",
-      receiptFooter: "Visit us again soon!",
-      showLogoOnReceipt: true,
-      includeTaxDetails: true,
-      receiptPaperSize: "80mm",
-
-      // Integrations
-      paymentGatewayEnabled: true,
-      barcodeScannerEnabled: true,
-      emailIntegrationEnabled: false,
-      smsIntegrationEnabled: false,
-
-      // System Preferences
-      enableNotifications: true,
-      enableAuditLog: true,
-      autoBackup: false,
-      maintenanceMode: false,
-    })
+    setSettings(defaultSettings)
   }
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p>Loading settings...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
 
   return (
     <div className="space-y-6">

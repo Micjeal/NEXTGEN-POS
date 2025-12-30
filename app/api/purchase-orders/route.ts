@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextRequest, NextResponse } from "next/server"
+import { requirePermission } from "@/lib/utils/permissions"
 
 // POST /api/purchase-orders - Create a new purchase order
 export async function POST(request: NextRequest) {
@@ -9,6 +10,13 @@ export async function POST(request: NextRequest) {
 
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Check user permission - purchase orders require manager/admin
+    try {
+      await requirePermission(user.id, 'manage_inventory')
+    } catch (error) {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
     const { supplier_id, order_number, status, total_amount, tax_amount, discount_amount, shipping_amount, expected_delivery_date, payment_terms, notes } = await request.json()
@@ -95,6 +103,8 @@ export async function GET(request: NextRequest) {
     }
 
     const { data: orders, error } = await query
+
+    console.log('API GET purchase orders result:', { data: orders, error, count: orders?.length })
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })

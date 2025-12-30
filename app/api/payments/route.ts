@@ -95,13 +95,19 @@ async function processCashPayment(
   supabase: any,
   saleId: string,
   paymentMethodId: string,
-  amount: number
+  amountReceived: number
 ) {
   try {
-    // Verify sale exists and belongs to user
+    // Get authenticated user
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      throw new Error('User not authenticated')
+    }
+
+    // Verify sale exists and belongs to user, get total amount
     const { data: sale, error: saleCheck } = await supabase
       .from('sales')
-      .select('id, user_id')
+      .select('id, user_id, total')
       .eq('id', saleId)
       .single()
 
@@ -120,24 +126,92 @@ async function processCashPayment(
       throw new Error('Invalid payment method')
     }
 
+    // Calculate change
+    const changeAmount = amountReceived - sale.total
+
     // Log payment attempt
-    await logPaymentAttempt(supabase, saleId, paymentMethodId, amount, 'cash', 'initiated')
+    await logPaymentAttempt(supabase, saleId, paymentMethodId, amountReceived, 'cash', 'initiated')
+
+    // Get user's open cash drawer
+    const { data: drawer, error: drawerError } = await supabase
+      .from('cash_drawers')
+      .select('id, current_balance')
+      .eq('user_id', user.id)
+      .eq('status', 'open')
+      .single()
+
+    if (drawerError && drawerError.code !== 'PGRST116') { // PGRST116 is "not found"
+      console.error('Error fetching drawer:', drawerError)
+      throw new Error('Failed to access cash drawer')
+    }
+
+    if (!drawer) {
+      throw new Error('No open cash drawer found. Please open a cash drawer first.')
+    }
+
+    // Record cash received transaction
+    await supabase
+      .from('cash_transactions')
+      .insert({
+        drawer_id: drawer.id,
+        user_id: user.id,
+        transaction_type: 'cash_received',
+        amount: sale.total, // Cash received equals sale total
+        description: `Cash payment for sale ${saleId}`,
+        balance_before: drawer.current_balance,
+        balance_after: drawer.current_balance + sale.total
+      })
+
+    // Update drawer balance for cash received
+    await supabase
+      .from('cash_drawers')
+      .update({
+        current_balance: drawer.current_balance + sale.total,
+        expected_balance: drawer.expected_balance + sale.total
+      })
+      .eq('id', drawer.id)
+
+    // If there's change to give, record it as cash out
+    if (changeAmount > 0) {
+      const updatedBalance = drawer.current_balance + sale.total
+
+      await supabase
+        .from('cash_transactions')
+        .insert({
+          drawer_id: drawer.id,
+          user_id: user.id,
+          transaction_type: 'change_given',
+          amount: -changeAmount, // Negative amount for cash out
+          description: `Change given for sale ${saleId}`,
+          balance_before: updatedBalance,
+          balance_after: updatedBalance - changeAmount
+        })
+
+      // Update drawer balance for change given
+      await supabase
+        .from('cash_drawers')
+        .update({
+          current_balance: updatedBalance - changeAmount,
+          expected_balance: drawer.expected_balance + sale.total - changeAmount
+        })
+        .eq('id', drawer.id)
+    }
 
     // Store payment record
     await storePaymentRecord(supabase, {
       saleId,
       paymentMethodId,
-      amount,
+      amount: amountReceived,
       status: 'completed'
     })
 
     // Log successful payment
-    await logPaymentAttempt(supabase, saleId, paymentMethodId, amount, 'cash', 'completed')
+    await logPaymentAttempt(supabase, saleId, paymentMethodId, amountReceived, 'cash', 'completed')
 
     return { success: true }
   } catch (error) {
     console.error('Cash payment processing error:', error)
-    await logPaymentAttempt(supabase, saleId, paymentMethodId, amount, 'cash', 'error', undefined, error instanceof Error ? error.message : 'Unknown error')
+    await logPaymentAttempt(supabase, saleId, paymentMethodId, amountReceived, 'cash', 'error', undefined, error instanceof Error ? error.message : 'Unknown error')
     return { success: false, error: 'Cash payment processing failed' }
   }
 }

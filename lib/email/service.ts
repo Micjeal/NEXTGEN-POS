@@ -37,6 +37,8 @@ export class EmailService {
     variables: Record<string, any> = {}
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
     try {
+      console.log('EmailService.sendEmail called with:', { templateId, recipientEmail, recipientName, variables })
+
       const supabase = await createClient()
 
       // Fetch template from database
@@ -47,7 +49,11 @@ export class EmailService {
         .eq('is_active', true)
         .single()
 
+      console.log('Template lookup result:', { template: template?.id, templateError })
+
       if (templateError || !template) {
+        console.log('Template not found, checking if demo mode...')
+        // If template not found and it's a demo ID, return error
         return { success: false, error: 'Email template not found' }
       }
 
@@ -59,8 +65,15 @@ export class EmailService {
         : undefined
 
       // Send email via Resend
+      // Use a verified domain or Resend's default for testing
+      const fromAddress = process.env.EMAIL_FROM?.includes('gmail.com')
+        ? 'onboarding@resend.dev'  // Use Resend's default for gmail testing
+        : `${process.env.EMAIL_FROM_NAME} <${process.env.EMAIL_FROM}>`
+
+      console.log('Sending from:', fromAddress)
+
       const { data: resendData, error: resendError } = await resend.emails.send({
-        from: `${process.env.EMAIL_FROM_NAME} <${process.env.EMAIL_FROM}>`,
+        from: fromAddress,
         to: recipientName ? `${recipientName} <${recipientEmail}>` : recipientEmail,
         subject: renderedSubject,
         html: renderedHtml,
@@ -68,6 +81,8 @@ export class EmailService {
       })
 
       if (resendError) {
+        console.error('Resend error:', resendError)
+
         // Log failed email
         await this.logEmail(supabase, {
           template_id: templateId,
@@ -78,7 +93,13 @@ export class EmailService {
           error_message: resendError.message,
         })
 
-        return { success: false, error: resendError.message }
+        // Provide user-friendly error message
+        let errorMessage = resendError.message
+        if (errorMessage.includes('domain is not verified')) {
+          errorMessage = 'Email domain not verified. Please verify your domain on Resend.com or use a different from address.'
+        }
+
+        return { success: false, error: errorMessage }
       }
 
       // Log successful email

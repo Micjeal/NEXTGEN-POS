@@ -13,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { DollarSign, Plus, Minus, Receipt, Lock, Unlock, AlertTriangle, CheckCircle, XCircle, RefreshCw } from "lucide-react"
+import { DollarSign, Plus, Minus, Receipt, Lock, Unlock, AlertTriangle, CheckCircle, XCircle, RefreshCw, CreditCard, Package } from "lucide-react"
 import { formatCurrency } from "@/lib/utils/cart"
 import { useToast } from "@/hooks/use-toast"
 
@@ -40,9 +40,38 @@ interface CashTransaction {
   notes?: string
 }
 
+interface TodaySummary {
+  salesTotal: number
+  salesCount: number
+  customerCount: number
+  paymentBreakdown: {
+    cash: number
+    card: number
+    mobile: number
+    other: number
+  }
+}
+
+interface TopProduct {
+  name: string
+  quantity: number
+  revenue: number
+  category: string
+}
+
+interface LowStockItem {
+  name: string
+  inventory: {
+    quantity: number
+  }
+}
+
 interface CashDrawerData {
   drawer: CashDrawer | null
   transactions: CashTransaction[]
+  todaySummary?: TodaySummary
+  topProducts?: TopProduct[]
+  lowStockItems?: LowStockItem[]
 }
 
 export default function CashDrawerClient() {
@@ -61,10 +90,13 @@ export default function CashDrawerClient() {
   const [closeNotes, setCloseNotes] = useState("")
   const [reconcileActualBalance, setReconcileActualBalance] = useState("")
   const [reconcileNotes, setReconcileNotes] = useState("")
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   const fetchData = async () => {
     try {
-      const response = await fetch("/api/cash-drawer")
+      const response = await fetch("/api/cash-drawer?t=" + Date.now(), {
+        headers: { 'Cache-Control': 'no-cache' }
+      })
       if (response.ok) {
         const result = await response.json()
         setData(result)
@@ -119,10 +151,14 @@ export default function CashDrawerClient() {
       })
       .subscribe()
 
-    // Cleanup subscriptions
+    // Fallback polling every 5 seconds in case real-time doesn't work
+    const pollInterval = setInterval(fetchData, 5000)
+
+    // Cleanup subscriptions and polling
     return () => {
       drawerSubscription.unsubscribe()
       transactionSubscription.unsubscribe()
+      clearInterval(pollInterval)
     }
   }, [])
 
@@ -360,6 +396,19 @@ export default function CashDrawerClient() {
   const isDrawerOpen = drawer?.status === 'open'
   const discrepancy = drawer ? drawer.current_balance - drawer.expected_balance : 0
 
+  // Calculate daily cash in and out using UTC dates
+  const today = new Date()
+  const todayString = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-${String(today.getUTCDate()).padStart(2, '0')}`
+  const todaysTransactions = transactions.filter(t => {
+    const date = new Date(t.created_at)
+    const dateString = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`
+    return dateString === todayString
+  })
+  const cashInToday = data.todaySummary?.paymentBreakdown.cash || 0
+  const cashOutToday = Math.abs(todaysTransactions
+    .filter(t => t.amount < 0)
+    .reduce((sum, t) => sum + t.amount, 0))
+
   return (
     <div className="space-y-6">
       {/* Drawer Status */}
@@ -461,6 +510,150 @@ export default function CashDrawerClient() {
             </Card>
           )}
         </div>
+      )}
+
+      {/* Daily Cash In Summary */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <DollarSign className="h-5 w-5 text-blue-600" />
+            Daily Cash In Summary
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-4">
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground">Cash In Today</p>
+              <p className="text-2xl font-bold text-green-600">{formatCurrency(cashInToday)}</p>
+            </div>
+          </div>
+          <div className="mt-4 text-center text-sm text-muted-foreground">
+            Transactions today: {todaysTransactions.length}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Today's Sales Summary */}
+      {data.todaySummary && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Receipt className="h-5 w-5 text-green-600" />
+              Today's Sales Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground">Total Sales</p>
+                <p className="text-2xl font-bold text-green-600">{formatCurrency(data.todaySummary.salesTotal)}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground">Sales Count</p>
+                <p className="text-2xl font-bold text-blue-600">{data.todaySummary.salesCount}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground">Customers</p>
+                <p className="text-2xl font-bold text-purple-600">{data.todaySummary.customerCount}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Payment Method Breakdown */}
+      {data.todaySummary && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5 text-purple-600" />
+              Payment Methods Today
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {data.todaySummary.paymentBreakdown.cash > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-sm">Cash</span>
+                  <span className="font-semibold text-green-600">{formatCurrency(data.todaySummary.paymentBreakdown.cash)}</span>
+                </div>
+              )}
+              {data.todaySummary.paymentBreakdown.card > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-sm">Card</span>
+                  <span className="font-semibold text-blue-600">{formatCurrency(data.todaySummary.paymentBreakdown.card)}</span>
+                </div>
+              )}
+              {data.todaySummary.paymentBreakdown.mobile > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-sm">Mobile Money</span>
+                  <span className="font-semibold text-orange-600">{formatCurrency(data.todaySummary.paymentBreakdown.mobile)}</span>
+                </div>
+              )}
+              {data.todaySummary.paymentBreakdown.other > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-sm">Other</span>
+                  <span className="font-semibold text-gray-600">{formatCurrency(data.todaySummary.paymentBreakdown.other)}</span>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Top Products Today */}
+      {data.topProducts && data.topProducts.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5 text-orange-600" />
+              Top Products Today
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {data.topProducts.map((product, index) => (
+                <div key={product.name} className="flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-bold text-muted-foreground w-6">{index + 1}.</span>
+                    <div>
+                      <p className="font-medium">{product.name}</p>
+                      <p className="text-xs text-muted-foreground">{product.category}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold">{product.quantity} sold</p>
+                    <p className="text-sm text-muted-foreground">{formatCurrency(product.revenue)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Low Stock Alerts */}
+      {data.lowStockItems && data.lowStockItems.length > 0 && (
+        <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
+              <AlertTriangle className="h-5 w-5" />
+              Low Stock Alerts
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {data.lowStockItems.map((item) => (
+                <div key={item.name} className="flex justify-between items-center">
+                  <span className="text-sm">{item.name}</span>
+                  <Badge variant="outline" className="text-amber-700 border-amber-300">
+                    {item.inventory.quantity} left
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Discrepancy Alert */}

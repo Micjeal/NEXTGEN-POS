@@ -3,38 +3,48 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { FileText, Plus, Edit, Trash2, Save, X, Mail, Eye, Send } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { Switch } from "@/components/ui/switch"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
-import type { EmailTemplate } from "@/lib/types/database"
+import { createClient } from "@/lib/supabase/client"
+import { Mail, Plus, Edit, Trash2, Eye, Copy, CheckCircle, XCircle } from "lucide-react"
+
+interface EmailTemplate {
+  id: string
+  name: string
+  subject: string
+  html_content: string
+  text_content?: string
+  category: string
+  variables: Record<string, any>
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
 
 export function EmailTemplates() {
   const [templates, setTemplates] = useState<EmailTemplate[]>([])
-  const [loading, setLoading] = useState(true)
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null)
   const [previewTemplate, setPreviewTemplate] = useState<EmailTemplate | null>(null)
-  const [testEmailDialogOpen, setTestEmailDialogOpen] = useState(false)
-  const [selectedTemplateForTest, setSelectedTemplateForTest] = useState<EmailTemplate | null>(null)
-  const [testEmailData, setTestEmailData] = useState({
-    recipientEmail: "",
-    recipientName: "",
-    variables: {} as Record<string, string>
-  })
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [formData, setFormData] = useState({
-    name: "",
-    subject: "",
-    html_content: "",
-    text_content: "",
-    category: "",
+    name: '',
+    subject: '',
+    html_content: '',
+    text_content: '',
+    category: '',
+    variables: {} as Record<string, any>,
+    is_active: true
   })
-
   const { toast } = useToast()
   const supabase = createClient()
 
@@ -44,68 +54,14 @@ export function EmailTemplates() {
 
   const fetchTemplates = async () => {
     try {
-      // For demo purposes, show sample templates
-      console.log('Loading sample email templates...')
-
-      await new Promise(resolve => setTimeout(resolve, 1000))
-
-      const sampleTemplates: EmailTemplate[] = [
-        {
-          id: '1',
-          name: 'Low Stock Alert',
-          subject: 'URGENT: Low Stock Alert - {{product_name}}',
-          html_content: '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Low Stock Alert</title></head><body><h2>⚠️ Low Stock Alert</h2><p>Product: {{product_name}}</p><p>Current Stock: {{current_stock}}</p></body></html>',
-          text_content: 'Low Stock Alert - {{product_name}}\nCurrent Stock: {{current_stock}}',
-          category: 'alerts',
-          variables: { product_name: 'Product Name', current_stock: 'Current Stock' },
-          is_active: true,
-          created_by: 'admin',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        {
-          id: '2',
-          name: 'Daily Sales Summary',
-          subject: 'Daily Sales Summary - {{date}}',
-          html_content: '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Daily Sales Summary</title></head><body><h2>📊 Daily Sales Summary - {{date}}</h2><p>Total Sales: UGX {{total_sales}}</p></body></html>',
-          text_content: 'Daily Sales Summary - {{date}}\nTotal Sales: UGX {{total_sales}}',
-          category: 'reports',
-          variables: { date: 'Date', total_sales: 'Total Sales' },
-          is_active: true,
-          created_by: 'admin',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        {
-          id: '3',
-          name: 'Customer Welcome',
-          subject: 'Welcome to {{store_name}} - {{customer_name}}!',
-          html_content: '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Welcome</title></head><body><h2>Welcome to {{store_name}}!</h2><p>Dear {{customer_name}},</p><p>Welcome to our store!</p></body></html>',
-          text_content: 'Welcome to {{store_name}} - {{customer_name}}!',
-          category: 'welcome',
-          variables: { store_name: 'Store Name', customer_name: 'Customer Name' },
-          is_active: true,
-          created_by: 'admin',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        {
-          id: '4',
-          name: 'Birthday Greeting',
-          subject: 'Happy Birthday from {{store_name}} - {{customer_name}}!',
-          html_content: '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Happy Birthday!</title></head><body><h2>🎂 Happy Birthday, {{customer_name}}!</h2><p>Enjoy {{birthday_discount}}% off your next purchase!</p></body></html>',
-          text_content: 'Happy Birthday, {{customer_name}}! Enjoy {{birthday_discount}}% off your next purchase!',
-          category: 'marketing',
-          variables: { store_name: 'Store Name', customer_name: 'Customer Name', birthday_discount: 'Discount Percentage' },
-          is_active: true,
-          created_by: 'admin',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }
-      ]
-
-      setTemplates(sampleTemplates)
-    } catch (error: any) {
+      const response = await fetch('/api/email-templates')
+      if (response.ok) {
+        const data = await response.json() as { templates: EmailTemplate[] }
+        setTemplates(data.templates)
+      } else {
+        throw new Error('Failed to fetch templates')
+      }
+    } catch (error) {
       console.error('Error fetching templates:', error)
       toast({
         title: "Error",
@@ -113,82 +69,63 @@ export function EmailTemplates() {
         variant: "destructive",
       })
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
-  const resetForm = () => {
-    setFormData({ name: "", subject: "", html_content: "", text_content: "", category: "" })
-    setEditingTemplate(null)
-  }
-
   const handleCreate = () => {
-    resetForm()
-    setIsCreateDialogOpen(true)
+    setEditingTemplate(null)
+    setFormData({
+      name: '',
+      subject: '',
+      html_content: '',
+      text_content: '',
+      category: '',
+      variables: {},
+      is_active: true
+    })
+    setIsDialogOpen(true)
   }
 
   const handleEdit = (template: EmailTemplate) => {
+    setEditingTemplate(template)
     setFormData({
       name: template.name,
       subject: template.subject,
       html_content: template.html_content,
-      text_content: template.text_content || "",
+      text_content: template.text_content || '',
       category: template.category,
+      variables: template.variables || {},
+      is_active: template.is_active
     })
-    setEditingTemplate(template)
-    setIsCreateDialogOpen(true)
+    setIsDialogOpen(true)
   }
 
   const handlePreview = (template: EmailTemplate) => {
     setPreviewTemplate(template)
+    setIsPreviewOpen(true)
   }
 
-  const handleTestEmail = (template: EmailTemplate) => {
-    setSelectedTemplateForTest(template)
-    setTestEmailData({
-      recipientEmail: "",
-      recipientName: "",
-      variables: {}
-    })
-    setTestEmailDialogOpen(true)
-  }
-
-  const handleSendTestEmail = async () => {
-    if (!selectedTemplateForTest || !testEmailData.recipientEmail) return
-
+  const handleDelete = async (templateId: string) => {
     try {
-      const response = await fetch('/api/emails/send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          templateId: selectedTemplateForTest.id,
-          recipientEmail: testEmailData.recipientEmail,
-          recipientName: testEmailData.recipientName || undefined,
-          variables: testEmailData.variables
-        })
+      const response = await fetch(`/api/email-templates/${templateId}`, {
+        method: 'DELETE'
       })
 
-      const result = await response.json()
-
-      if (result.success) {
+      if (response.ok) {
+        setTemplates(templates.filter(t => t.id !== templateId))
         toast({
           title: "Success",
-          description: "Test email sent successfully!",
+          description: "Email template deleted successfully",
         })
-        setTestEmailDialogOpen(false)
       } else {
-        toast({
-          title: "Error",
-          description: result.error || "Failed to send test email",
-          variant: "destructive",
-        })
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to delete template')
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to send test email",
+        description: error.message || "Failed to delete template",
         variant: "destructive",
       })
     }
@@ -198,216 +135,225 @@ export function EmailTemplates() {
     e.preventDefault()
 
     try {
-      const templateData = {
-        name: formData.name.trim(),
-        subject: formData.subject.trim(),
-        html_content: formData.html_content.trim(),
-        text_content: formData.text_content.trim() || undefined,
-        category: formData.category as EmailTemplate['category'],
-        variables: {}, // Would be extracted from template content
-        created_by: 'current_user',
-        is_active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }
+      const url = editingTemplate
+        ? `/api/email-templates/${editingTemplate.id}`
+        : '/api/email-templates'
+      const method = editingTemplate ? 'PUT' : 'POST'
 
-      if (editingTemplate) {
-        // Update existing template
-        setTemplates(prev => prev.map(t =>
-          t.id === editingTemplate.id ? { ...t, ...templateData } : t
-        ))
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      })
 
+      if (response.ok) {
+        const data = await response.json() as { template: EmailTemplate }
+        if (editingTemplate) {
+          setTemplates(templates.map(t => t.id === editingTemplate.id ? data.template : t))
+        } else {
+          setTemplates([...templates, data.template])
+        }
+        setIsDialogOpen(false)
         toast({
           title: "Success",
-          description: "Email template updated successfully (demo mode)",
+          description: `Email template ${editingTemplate ? 'updated' : 'created'} successfully`,
         })
       } else {
-        // Create new template
-        const newTemplate = {
-          ...templateData,
-          id: Date.now().toString()
-        }
-
-        setTemplates(prev => [...prev, newTemplate])
-
-        toast({
-          title: "Success",
-          description: "Email template created successfully (demo mode)",
-        })
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to save template')
       }
-
-      setIsCreateDialogOpen(false)
-      resetForm()
     } catch (error: any) {
-      console.error('Template operation failed:', error)
       toast({
         title: "Error",
-        description: error?.message || "Failed to save template",
+        description: error.message || "Failed to save template",
         variant: "destructive",
       })
     }
   }
 
-  const handleDelete = async (templateId: string) => {
-    try {
-      setTemplates(prev => prev.filter(t => t.id !== templateId))
+  const getCategoryBadge = (category: string) => {
+    const variants = {
+      alerts: 'destructive',
+      reports: 'default',
+      receipts: 'secondary',
+      welcome: 'outline',
+      marketing: 'outline',
+      system: 'secondary'
+    } as const
 
-      toast({
-        title: "Success",
-        description: "Email template deleted successfully (demo mode)",
-      })
-    } catch (error: any) {
-      console.error('Delete template failed:', error)
-      toast({
-        title: "Error",
-        description: error?.message || "Failed to delete template",
-        variant: "destructive",
-      })
-    }
+    return (
+      <Badge variant={variants[category as keyof typeof variants] || 'secondary'}>
+        {category}
+      </Badge>
+    )
   }
 
-  const categories = [...new Set(templates.map(t => t.category))]
-
-  if (loading) {
+  if (isLoading) {
     return (
       <Card>
-        <CardContent className="flex items-center justify-center py-8">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading email templates...</p>
-          </div>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Mail className="h-5 w-5" />
+            Email Templates
+          </CardTitle>
+          <CardDescription>Manage email templates for automated notifications</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8">Loading templates...</div>
         </CardContent>
       </Card>
     )
   }
 
   return (
-    <>
+    <div className="space-y-6">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5" />
-              Email Templates
-            </CardTitle>
-            <CardDescription>Manage email templates for automated notifications</CardDescription>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Mail className="h-5 w-5" />
+                Email Templates
+              </CardTitle>
+              <CardDescription>Manage email templates for automated notifications</CardDescription>
+            </div>
+            <Button onClick={handleCreate}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Template
+            </Button>
           </div>
-          <Button onClick={handleCreate}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Template
-          </Button>
         </CardHeader>
         <CardContent>
           {templates.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Mail className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No email templates yet</p>
-              <p className="text-sm">Create templates for automated emails</p>
+            <div className="text-center py-12">
+              <Mail className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
+              <h3 className="text-lg font-semibold mb-2">No Templates Yet</h3>
+              <p className="text-muted-foreground mb-4">
+                Create your first email template to get started with automated notifications.
+              </p>
+              <Button onClick={handleCreate}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Template
+              </Button>
             </div>
           ) : (
-            <div className="space-y-6">
-              {categories.map((category) => (
-                <div key={category} className="space-y-3">
-                  <h3 className="text-lg font-semibold capitalize">{category}</h3>
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {templates
-                      .filter(t => t.category === category)
-                      .map((template) => (
-                        <div key={template.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex-1">
-                              <h4 className="font-semibold text-sm mb-1">{template.name}</h4>
-                              <p className="text-xs text-muted-foreground line-clamp-2">
-                                {template.subject}
-                              </p>
-                            </div>
-                            <Badge variant="outline" className="text-xs">
-                              {template.category}
-                            </Badge>
-                          </div>
-
-                          <p className="text-sm text-muted-foreground line-clamp-3 mb-3">
-                            {template.html_content.replace(/<[^>]*>/g, '').substring(0, 100)}...
-                          </p>
-
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handlePreview(template)}
-                              className="flex-1"
-                            >
-                              <Eye className="h-3 w-3 mr-1" />
-                              Preview
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Updated</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {templates.map((template) => (
+                  <TableRow key={template.id}>
+                    <TableCell className="font-medium">{template.name}</TableCell>
+                    <TableCell>{getCategoryBadge(template.category)}</TableCell>
+                    <TableCell>
+                      {template.is_active ? (
+                        <Badge variant="outline" className="text-green-600">
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          Active
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-gray-500">
+                          <XCircle className="h-3 w-3 mr-1" />
+                          Inactive
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {new Date(template.updated_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handlePreview(template)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(template)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <Trash2 className="h-4 w-4" />
                             </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleTestEmail(template)}
-                            >
-                              <Send className="h-3 w-3 mr-1" />
-                              Test
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleEdit(template)}
-                            >
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleDelete(template.id)}
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Template</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete "{template.name}"? This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDelete(template.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
 
       {/* Create/Edit Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingTemplate ? "Edit Email Template" : "Create Email Template"}
+              {editingTemplate ? 'Edit Template' : 'Create New Template'}
             </DialogTitle>
             <DialogDescription>
-              {editingTemplate ? "Update the email template" : "Create a reusable email template"}
+              Configure your email template with variables and content.
             </DialogDescription>
           </DialogHeader>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="templateName">Template Name</Label>
+                <Label htmlFor="name">Template Name</Label>
                 <Input
-                  id="templateName"
+                  id="name"
                   value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g., Low Stock Alert"
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="e.g., Transaction Receipt"
                   required
                 />
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
-                <Select value={formData.category} onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}>
+                <Select
+                  value={formData.category}
+                  onValueChange={(value) => setFormData({ ...formData, category: value })}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="alerts">Alerts</SelectItem>
                     <SelectItem value="reports">Reports</SelectItem>
+                    <SelectItem value="receipts">Receipts</SelectItem>
                     <SelectItem value="welcome">Welcome</SelectItem>
                     <SelectItem value="marketing">Marketing</SelectItem>
                     <SelectItem value="system">System</SelectItem>
@@ -417,12 +363,12 @@ export function EmailTemplates() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="subject">Subject Line</Label>
+              <Label htmlFor="subject">Email Subject</Label>
               <Input
                 id="subject"
                 value={formData.subject}
-                onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
-                placeholder="Email subject with {{variables}}"
+                onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                placeholder="e.g., Your Receipt from {{store_name}}"
                 required
               />
             </div>
@@ -432,9 +378,9 @@ export function EmailTemplates() {
               <Textarea
                 id="html_content"
                 value={formData.html_content}
-                onChange={(e) => setFormData(prev => ({ ...prev, html_content: e.target.value }))}
-                placeholder="HTML email content with {{variables}}..."
-                rows={12}
+                onChange={(e) => setFormData({ ...formData, html_content: e.target.value })}
+                placeholder="Enter HTML content with {{variables}}"
+                className="min-h-64 font-mono text-sm"
                 required
               />
             </div>
@@ -444,122 +390,77 @@ export function EmailTemplates() {
               <Textarea
                 id="text_content"
                 value={formData.text_content}
-                onChange={(e) => setFormData(prev => ({ ...prev, text_content: e.target.value }))}
+                onChange={(e) => setFormData({ ...formData, text_content: e.target.value })}
                 placeholder="Plain text version for email clients that don't support HTML"
-                rows={6}
+                className="min-h-32 font-mono text-sm"
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setIsCreateDialogOpen(false)
-                  resetForm()
-                }}
-              >
-                <X className="h-4 w-4 mr-2" />
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="is_active"
+                checked={formData.is_active}
+                onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+              />
+              <Label htmlFor="is_active">Active</Label>
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancel
               </Button>
               <Button type="submit">
-                <Save className="h-4 w-4 mr-2" />
-                {editingTemplate ? "Update" : "Create"} Template
+                {editingTemplate ? 'Update Template' : 'Create Template'}
               </Button>
-            </div>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
       {/* Preview Dialog */}
-      <Dialog open={!!previewTemplate} onOpenChange={() => setPreviewTemplate(null)}>
+      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Preview: {previewTemplate?.name}</DialogTitle>
-            <DialogDescription>HTML email preview</DialogDescription>
-          </DialogHeader>
-          <div className="border rounded-lg p-4 bg-white">
-            <div dangerouslySetInnerHTML={{ __html: previewTemplate?.html_content || '' }} />
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Test Email Dialog */}
-      <Dialog open={testEmailDialogOpen} onOpenChange={setTestEmailDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Send Test Email: {selectedTemplateForTest?.name}</DialogTitle>
+            <DialogTitle>Template Preview: {previewTemplate?.name}</DialogTitle>
             <DialogDescription>
-              Send a test email using this template to verify the email system is working.
+              Preview of how the email template will appear.
             </DialogDescription>
           </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="testRecipientEmail">Recipient Email</Label>
-                <Input
-                  id="testRecipientEmail"
-                  type="email"
-                  value={testEmailData.recipientEmail}
-                  onChange={(e) => setTestEmailData(prev => ({ ...prev, recipientEmail: e.target.value }))}
-                  placeholder="test@example.com"
-                  required
+          {previewTemplate && (
+            <div className="space-y-4">
+              <div>
+                <Label className="text-sm font-medium">Subject:</Label>
+                <p className="text-sm text-muted-foreground mt-1">{previewTemplate.subject}</p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">HTML Preview:</Label>
+                <div
+                  className="mt-2 border rounded-md p-4 max-h-96 overflow-y-auto"
+                  dangerouslySetInnerHTML={{ __html: previewTemplate.html_content }}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="testRecipientName">Recipient Name (Optional)</Label>
-                <Input
-                  id="testRecipientName"
-                  value={testEmailData.recipientName}
-                  onChange={(e) => setTestEmailData(prev => ({ ...prev, recipientName: e.target.value }))}
-                  placeholder="John Doe"
-                />
-              </div>
-            </div>
-
-            {selectedTemplateForTest?.variables && Object.keys(selectedTemplateForTest.variables).length > 0 && (
-              <div className="space-y-2">
-                <Label>Template Variables</Label>
-                <div className="grid gap-2 md:grid-cols-2">
-                  {Object.entries(selectedTemplateForTest.variables).map(([key, defaultValue]) => (
-                    <div key={key} className="space-y-1">
-                      <Label htmlFor={`var-${key}`} className="text-sm">{key}</Label>
-                      <Input
-                        id={`var-${key}`}
-                        value={testEmailData.variables[key] || defaultValue || ''}
-                        onChange={(e) => setTestEmailData(prev => ({
-                          ...prev,
-                          variables: { ...prev.variables, [key]: e.target.value }
-                        }))}
-                        placeholder={defaultValue || `Enter ${key}`}
-                      />
-                    </div>
+              {previewTemplate.text_content && (
+                <div>
+                  <Label className="text-sm font-medium">Text Version:</Label>
+                  <pre className="mt-2 p-4 bg-muted rounded-md text-sm whitespace-pre-wrap">
+                    {previewTemplate.text_content}
+                  </pre>
+                </div>
+              )}
+              <div>
+                <Label className="text-sm font-medium">Variables:</Label>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {Object.keys(previewTemplate.variables || {}).map((variable) => (
+                    <Badge key={variable} variant="outline">
+                      {variable}
+                    </Badge>
                   ))}
                 </div>
               </div>
-            )}
-
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setTestEmailDialogOpen(false)}
-              >
-                <X className="h-4 w-4 mr-2" />
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSendTestEmail}
-                disabled={!testEmailData.recipientEmail}
-              >
-                <Send className="h-4 w-4 mr-2" />
-                Send Test Email
-              </Button>
             </div>
-          </div>
+          )}
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   )
 }

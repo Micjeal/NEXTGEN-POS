@@ -39,9 +39,10 @@ export function calculateCartTotals(items: CartItem[]) {
   }
 }
 
-export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-US", {
+export function formatCurrency(amount: number, currency: string = "UGX"): string {
+  const locale = currency === "UGX" ? "en-UG" : "en-US"
+  return new Intl.NumberFormat(locale, {
     style: "currency",
-    currency: "USD",
+    currency: currency,
   }).format(amount)
 }

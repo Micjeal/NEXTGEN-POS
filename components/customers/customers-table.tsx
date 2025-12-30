@@ -64,7 +64,8 @@ export function CustomersTable({ customers }: CustomersTableProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
+          <div className="overflow-x-auto">
+            <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Customer</TableHead>
@@ -96,7 +97,7 @@ export function CustomersTable({ customers }: CustomersTableProps) {
                           {customer.date_of_birth && (
                             <div className="text-xs text-muted-foreground flex items-center gap-1">
                               <Calendar className="h-3 w-3" />
-                              {new Date(customer.date_of_birth).toLocaleDateString()}
+                              {new Date(customer.date_of_birth).toISOString().slice(0, 10)}
                             </div>
                           )}
                         </div>
@@ -141,7 +142,10 @@ export function CustomersTable({ customers }: CustomersTableProps) {
                     <TableCell>
                       {customer.last_visit_date ? (
                         <span className="text-sm text-muted-foreground">
-                          {new Date(customer.last_visit_date).toLocaleDateString()}
+                          {(() => {
+                            const date = new Date(customer.last_visit_date);
+                            return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+                          })()}
                         </span>
                       ) : (
                         <span className="text-sm text-muted-foreground">Never</span>
@@ -156,7 +160,8 @@ export function CustomersTable({ customers }: CustomersTableProps) {
                 ))
               )}
             </TableBody>
-          </Table>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

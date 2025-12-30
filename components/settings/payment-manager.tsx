@@ -1,15 +1,16 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
-import { Settings, Plus, Edit, Save, X } from "lucide-react"
+import { Settings, Plus, Edit, Save, X, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/lib/supabase/client"
+import { getUserPermissions } from "@/lib/utils"
 import type { PaymentMethod } from "@/lib/types/database"
 
 interface PaymentManagerProps {
@@ -21,8 +22,60 @@ export function PaymentManager({ paymentMethods: initialPaymentMethods }: Paymen
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingMethod, setEditingMethod] = useState<PaymentMethod | null>(null)
   const [formData, setFormData] = useState({ name: "", is_active: true })
+  const [userPermissions, setUserPermissions] = useState<string[]>([])
+  const [isLoadingPermissions, setIsLoadingPermissions] = useState(true)
   const { toast } = useToast()
   const supabase = createClient()
+
+  useEffect(() => {
+    const loadPermissions = async () => {
+      const permissions = await getUserPermissions()
+      setUserPermissions(permissions)
+      setIsLoadingPermissions(false)
+    }
+    loadPermissions()
+  }, [])
+
+  const hasPermission = userPermissions.includes('manage_settings')
+
+  if (isLoadingPermissions) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Payment Methods
+          </CardTitle>
+          <CardDescription>Configure available payment options</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            <span className="ml-2">Loading permissions...</span>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (!hasPermission) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Payment Methods
+          </CardTitle>
+          <CardDescription>Configure available payment options</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center py-8">
+            <p className="text-muted-foreground">You don't have permission to manage payment methods.</p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
 
   const resetForm = () => {
     setFormData({ name: "", is_active: true })

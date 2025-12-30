@@ -51,7 +51,8 @@ export function ProductsTable({ products, categories }: ProductsTableProps) {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
+          <div className="overflow-x-auto">
+            <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
@@ -120,7 +121,8 @@ export function ProductsTable({ products, categories }: ProductsTableProps) {
                 })
               )}
             </TableBody>
-          </Table>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 

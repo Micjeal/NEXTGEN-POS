@@ -36,6 +36,12 @@ export default async function UsersPage() {
     `)
     .order("created_at", { ascending: false })
 
+  // Format dates consistently to avoid hydration mismatch
+  const formattedProfiles = profiles?.map(profile => ({
+    ...profile,
+    created_at: new Date(profile.created_at).toISOString().split('T')[0] // YYYY-MM-DD format
+  })) || []
+
   const { data: roles } = await supabase.from("roles").select("*").order("name")
 
   return (
@@ -45,7 +51,7 @@ export default async function UsersPage() {
         <p className="text-muted-foreground">Manage user accounts and roles</p>
       </div>
 
-      <UsersTable profiles={(profiles as Profile[]) || []} roles={(roles as Role[]) || []} />
+      <UsersTable profiles={(formattedProfiles as Profile[]) || []} roles={(roles as Role[]) || []} />
     </div>
   )
 }

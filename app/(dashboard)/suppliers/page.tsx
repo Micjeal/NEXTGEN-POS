@@ -3,6 +3,7 @@ import { SuppliersTable } from "@/components/suppliers/suppliers-table"
 import { AddSupplierDialog } from "@/components/suppliers/add-supplier-dialog"
 import type { Supplier } from "@/lib/types/database"
 import { redirect } from "next/navigation"
+import { cookies } from "next/headers"
 
 export default async function SuppliersPage() {
   const supabase = await createClient()
@@ -25,14 +26,26 @@ export default async function SuppliersPage() {
   }
 
   const userRole = profile.role?.name
+  console.log('User role:', userRole)
   if (userRole !== 'admin') {
     redirect("/dashboard")
   }
 
-  const { data: suppliers } = await supabase
-    .from("suppliers")
-    .select("*")
-    .order("created_at", { ascending: false })
+  let suppliers: Supplier[] = []
+
+  const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/suppliers`, {
+    headers: {
+      cookie: (await cookies()).toString()
+    }
+  })
+
+  if (!response.ok) {
+    console.error("API response not ok:", response.status, response.statusText)
+  } else {
+    const data = await response.json()
+    suppliers = data.suppliers || []
+    console.log("Fetched suppliers via API:", suppliers.length, suppliers)
+  }
 
   return (
     <div className="space-y-6">

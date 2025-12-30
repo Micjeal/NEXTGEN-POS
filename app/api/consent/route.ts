@@ -26,32 +26,47 @@ export async function GET(request: NextRequest) {
     }
 
     // Users can only see their own consent, admins can see all
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role_id')
-      .eq('id', user.id)
-      .single();
+    let isAdmin = false;
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role_id')
+        .eq('id', user.id)
+        .single();
 
-    const { data: role } = await supabase
-      .from('roles')
-      .select('name')
-      .eq('id', profile?.role_id)
-      .single();
+      const { data: role } = await supabase
+        .from('roles')
+        .select('name')
+        .eq('id', profile?.role_id)
+        .single();
 
-    if (role?.name !== 'admin') {
+      isAdmin = role?.name === 'admin';
+    } catch (error) {
+      console.log('Role check failed, assuming non-admin');
+      isAdmin = false;
+    }
+
+    if (!isAdmin) {
       query = query.eq('user_id', user.id);
     } else if (userId && userId !== user.id) {
       query = query.eq('user_id', userId);
     }
 
-    const { data, error } = await query;
+    try {
+      const { data, error } = await query;
 
-    if (error) {
-      console.error('Error fetching consent logs:', error);
-      return NextResponse.json({ error: 'Failed to fetch consent logs' }, { status: 500 });
+      if (error) {
+        console.error('Error fetching consent logs:', error);
+        // Return empty array for any database error (table doesn't exist, permissions, etc.)
+        return NextResponse.json({ data: [] });
+      }
+
+      return NextResponse.json({ data });
+    } catch (dbError) {
+      console.error('Database error fetching consent logs:', dbError);
+      // Return empty array for any database exception
+      return NextResponse.json({ data: [] });
     }
-
-    return NextResponse.json({ data });
   } catch (error) {
     console.error('Error in consent GET:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
