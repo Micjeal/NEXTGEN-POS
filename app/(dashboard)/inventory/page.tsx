@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { InventoryTable } from "@/components/inventory/inventory-table"
+import { AuditHistory } from "@/components/inventory/audit-history"
 import type { Product } from "@/lib/types/database"
 import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
@@ -50,6 +51,8 @@ export default async function InventoryPage() {
       </div>
 
       <InventoryTable products={(products as Product[]) || []} />
+
+      <AuditHistory />
     </div>
   )
 }

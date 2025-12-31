@@ -52,10 +52,15 @@ export type Product = {
   tax_rate: number
   is_active: boolean
   image_url: string | null
+  expiry_date: string | null
   created_at: string
   updated_at: string
   category?: Category
   inventory?: Inventory
+  supplier?: Supplier
+  supplier_products?: {
+    supplier: Supplier
+  }[]
 }
 
 export type Inventory = {
@@ -78,6 +83,8 @@ export type InventoryAdjustment = {
   reason: string | null
   reference_id: string | null
   created_at: string
+  product?: Product
+  user?: Profile
 }
 
 export type PaymentMethod = {

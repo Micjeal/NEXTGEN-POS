@@ -23,6 +23,7 @@ const navigation = [
   { name: "Suppliers", href: "/suppliers", icon: Building2, roles: ["admin", "manager"] },
   { name: "Purchase Orders", href: "/purchase-orders", icon: FileText, roles: ["admin", "manager"] },
   { name: "Users", href: "/users", icon: Users, roles: ["admin", "manager"] },
+  { name: "Employees", href: "/employees", icon: Users, roles: ["admin", "manager"] },
   { name: "Messages", href: "/messages", icon: MessageSquare, roles: ["admin", "manager", "cashier"] },
   { name: "Reports", href: "/reports", icon: BarChart3, roles: ["admin", "manager"] },
   { name: "Insights", href: "/insights", icon: Eye, roles: ["admin", "manager"] },

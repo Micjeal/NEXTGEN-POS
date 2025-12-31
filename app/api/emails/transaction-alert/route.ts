@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { emailService } from '@/lib/email/service'
+import type { SaleItem } from '@/lib/types/database'
 
 // POST /api/emails/transaction-alert - Send transaction alerts to staff
 export async function POST(request: NextRequest) {
@@ -25,8 +26,7 @@ export async function POST(request: NextRequest) {
         *,
         customer:customers(*),
         items:sale_items(*, product:products(*)),
-        payments(*, payment_method:payment_methods(*)),
-        user:profiles!sales_user_id_fkey(full_name)
+        payments(*, payment_method:payment_methods(*))
       `)
       .eq('id', saleId)
       .single()
@@ -36,17 +36,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Sale not found' }, { status: 404 })
     }
 
-    // Get staff who have transaction alerts enabled
+    // Get user_ids who have transaction alerts enabled
+    const { data: settings, error: settingsError } = await supabase
+      .from('email_settings')
+      .select('user_id')
+      .eq('email_type', 'transaction_alert')
+      .eq('enabled', true)
+
+    if (settingsError || !settings || settings.length === 0) {
+      return NextResponse.json({ message: 'No staff have transaction alert notifications enabled' })
+    }
+
+    const userIds = settings.map(s => s.user_id)
+
+    // Get staff profiles
     const { data: staff, error: staffError } = await supabase
       .from('profiles')
-      .select(`
-        id,
-        email,
-        full_name,
-        email_settings!inner(enabled)
-      `)
-      .eq('email_settings.email_type', 'transaction_alert')
-      .eq('email_settings.enabled', true)
+      .select('id, email, full_name')
+      .in('id', userIds)
 
     if (staffError) {
       console.error('Error fetching staff:', staffError)
@@ -70,7 +77,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Format items for template
-    const itemsList = sale.items?.map(item =>
+    const itemsList = (sale.items as SaleItem[])?.map(item =>
       `${item.product_name} x${item.quantity} - $${item.line_total?.toFixed(2)}`
     ).join('\n') || ''
 
@@ -90,7 +97,7 @@ export async function POST(request: NextRequest) {
         discount_amount: sale.discount_amount?.toFixed(2) || '0.00',
         total: sale.total.toFixed(2),
         payment_method: sale.payments?.[0]?.payment_method?.name || 'Unknown',
-        cashier_name: sale.user?.full_name || 'Unknown'
+        cashier_name: 'Unknown'
       }
 
       const result = await emailService.sendEmail(

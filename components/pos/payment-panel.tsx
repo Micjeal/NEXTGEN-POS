@@ -27,6 +27,7 @@ interface PaymentPanelProps {
      full_name: string
      phone: string | null
      membership_tier: string
+     registered_customer_id?: string | null
    } | null
    loyaltyPoints?: number
    onPointsRedeemed?: (points: number, discount: number) => void
@@ -104,7 +105,7 @@ export function PaymentPanel({
         </div>
 
         {/* Loyalty Points Redemption */}
-        {selectedCustomer && loyaltyPoints > 0 && selectedCustomer.phone && (
+        {selectedCustomer && loyaltyPoints > 0 && selectedCustomer.phone && selectedCustomer.registered_customer_id && (
           <div className="space-y-3 p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
             <div className="flex items-center gap-2">
               <Star className="h-5 w-5 text-purple-600" />

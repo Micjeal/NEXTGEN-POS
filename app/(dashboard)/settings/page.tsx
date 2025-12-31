@@ -17,6 +17,7 @@ import { ProfileSettings } from "@/components/settings/profile-settings"
 import { SecuritySettings } from "@/components/settings/security-settings"
 import { NotificationSettings } from "@/components/settings/notification-settings"
 import { EmailTemplates } from "@/components/settings/email-templates"
+import { MaintenanceSettings } from "@/components/settings/maintenance-settings"
 import { redirect } from "next/navigation"
 import { Mail } from "lucide-react"
 
@@ -61,7 +62,7 @@ export default async function SettingsPage() {
       </div>
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="profile" className="flex items-center gap-2">
             <User className="h-4 w-4" />
             Profile
@@ -93,6 +94,10 @@ export default async function SettingsPage() {
           <TabsTrigger value="payments" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
             Payments
+          </TabsTrigger>
+          <TabsTrigger value="maintenance" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Maintenance
           </TabsTrigger>
         </TabsList>
 
@@ -127,6 +132,10 @@ export default async function SettingsPage() {
 
         <TabsContent value="payments" className="space-y-6">
           <PaymentManager paymentMethods={paymentMethods || []} />
+        </TabsContent>
+
+        <TabsContent value="maintenance" className="space-y-6">
+          <MaintenanceSettings />
         </TabsContent>
       </Tabs>
     </div>

@@ -18,6 +18,7 @@ interface Customer {
   total_spent: number
   total_visits: number
   last_visit_date: string | null
+  registered_customer_id?: string | null
 }
 
 interface LoyaltyInfo {
@@ -241,7 +242,7 @@ export function CustomerLookup({
                   </div>
                 </div>
 
-                {searchResults.loyaltyInfo && (
+                {searchResults.customer.registered_customer_id && searchResults.loyaltyInfo && (
                   <div className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400 mb-3">
                     <Star className="h-4 w-4" />
                     <span>{searchResults.loyaltyInfo.current_points.toLocaleString()} points available</span>

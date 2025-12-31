@@ -69,6 +69,12 @@ export async function GET(request: NextRequest) {
 
     const lowStockCount = lowStock?.length || 0
 
+    // Fetch active employees count
+    const { count: activeEmployeesCount } = await supabase
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("is_active", true)
+
     // Fetch recent products
     const { data: recentProducts } = await supabase
       .from("products")
@@ -93,6 +99,9 @@ export async function GET(request: NextRequest) {
 
     // Process sales data based on granularity
     let processedSales: Array<{ period: string; sales: number; growth: number }> = []
+
+    // Check if we have real sales data
+    const hasRealSalesData = monthlySalesData && monthlySalesData.length > 0
 
     if (granularity === 'hourly') {
       // Group by hour for the selected date range
@@ -151,6 +160,8 @@ export async function GET(request: NextRequest) {
       })
     }
 
+    // If no sales data, processedSales will remain empty
+
     // Calculate growth
     for (let i = 1; i < processedSales.length; i++) {
       const prev = processedSales[i - 1].sales
@@ -207,7 +218,7 @@ export async function GET(request: NextRequest) {
 
     const { data: yesterdaySales } = await yesterdaySalesQuery
     const yesterdayTotal = (yesterdaySales as {total: number}[] | null)?.reduce((sum, sale) => sum + Number(sale.total), 0) || 0
-    const salesChange = yesterdayTotal > 0 ? ((todayTotal - yesterdayTotal) / yesterdayTotal) * 100 : 100
+    const salesChange = yesterdayTotal > 0 ? ((todayTotal - yesterdayTotal) / yesterdayTotal) * 100 : (todayTotal > 0 ? 100 : 0)
 
     // Generate predictive insights if user has permission
     let predictiveData = null
@@ -375,6 +386,7 @@ export async function GET(request: NextRequest) {
       productPerformance,
       salesChange,
       yesterdayTotal,
+      activeEmployeesCount: activeEmployeesCount || 0,
       userRole,
       greeting: `Good ${new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}`
     })

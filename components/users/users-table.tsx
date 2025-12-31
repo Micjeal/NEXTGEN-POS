@@ -158,6 +158,27 @@ export function UsersTable({ profiles, roles }: UsersTableProps) {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => setEditUser(profile)}>Edit User</DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={async () => {
+                              try {
+                                const response = await fetch('/api/auth/update-user', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    userId: profile.id,
+                                    is_active: !profile.is_active
+                                  })
+                                })
+                                if (response.ok) {
+                                  window.location.reload()
+                                }
+                              } catch (error) {
+                                console.error('Failed to toggle user status:', error)
+                              }
+                            }}
+                          >
+                            {profile.is_active ? 'Disable User' : 'Enable User'}
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => router.push(`/users/${profile.id}/sales`)}>View Sales</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { emailService } from '@/lib/email/service'
+import type { SaleItem } from '@/lib/types/database'
 
 // POST /api/emails/transaction-receipt - Send transaction receipt to customer
 export async function POST(request: NextRequest) {
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
 
     // Get transaction receipt template
     console.log('Fetching transaction receipt templates...')
-    const templates = await emailService.getTemplatesByCategory('receipts')
+    const templates = await emailService.getTemplatesByCategory('welcome')
     console.log('Found receipt templates:', templates.map(t => t.name))
     const receiptTemplate = templates.find(t => t.name === 'Transaction Receipt')
     console.log('Receipt template found:', !!receiptTemplate)
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Format items for template
-    const itemsList = sale.items?.map(item =>
+    const itemsList = (sale.items as SaleItem[])?.map(item =>
       `${item.product_name} x${item.quantity} - $${item.line_total?.toFixed(2)}`
     ).join('\n') || ''
 

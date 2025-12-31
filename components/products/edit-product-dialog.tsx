@@ -31,6 +31,7 @@ export function EditProductDialog({ product, categories, open, onOpenChange }: E
     cost_price: "",
     tax_rate: "",
     is_active: true,
+    expiry_date: "",
   })
   const router = useRouter()
   const { toast } = useToast()
@@ -45,6 +46,7 @@ export function EditProductDialog({ product, categories, open, onOpenChange }: E
         cost_price: product.cost_price.toString(),
         tax_rate: product.tax_rate.toString(),
         is_active: product.is_active,
+        expiry_date: product.expiry_date ? product.expiry_date.split('T')[0] : "",
       })
     }
   }, [product])
@@ -67,6 +69,7 @@ export function EditProductDialog({ product, categories, open, onOpenChange }: E
           cost_price: Number.parseFloat(formData.cost_price) || 0,
           tax_rate: Number.parseFloat(formData.tax_rate) || 0,
           is_active: formData.is_active,
+          expiry_date: formData.expiry_date || null,
         })
         .eq("id", product.id)
 
@@ -109,7 +112,7 @@ export function EditProductDialog({ product, categories, open, onOpenChange }: E
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="edit-barcode">Barcode</Label>
                 <Input
@@ -135,6 +138,15 @@ export function EditProductDialog({ product, categories, open, onOpenChange }: E
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-expiry">Expiry Date</Label>
+                <Input
+                  id="edit-expiry"
+                  type="date"
+                  value={formData.expiry_date}
+                  onChange={(e) => setFormData({ ...formData, expiry_date: e.target.value })}
+                />
               </div>
             </div>
 

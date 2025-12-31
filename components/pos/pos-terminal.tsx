@@ -17,6 +17,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import {
   RefreshCw, ShoppingCart, CreditCard, Search, User, Scan,
   Package, DollarSign, Plus, Minus, Trash2, CheckCircle, XCircle, AlertTriangle, Award
@@ -31,6 +33,7 @@ interface Customer {
   total_spent: number
   total_visits: number
   last_visit_date: string | null
+  registered_customer_id?: string | null
 }
 
 interface POSTerminalProps {
@@ -66,6 +69,8 @@ export function POSTerminal({ products: initialProducts, paymentMethods, currenc
   const [addCashAmount, setAddCashAmount] = useState("")
   const [addCashDescription, setAddCashDescription] = useState("")
   const [showAddCashForm, setShowAddCashForm] = useState(false)
+  const [manualDiscount, setManualDiscount] = useState(0)
+  const [previousManualDiscount, setPreviousManualDiscount] = useState(0)
   const barcodeRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
   const supabase = createClient()
@@ -235,43 +240,33 @@ export function POSTerminal({ products: initialProducts, paymentMethods, currenc
     if (!selectedCustomer) return
 
     try {
-      // Check if customer exists, create if necessary
+      // Check if customer exists and is registered
       let customerId = selectedCustomer.id
       const existingCustomer = await supabase
         .from("customers")
-        .select("id")
+        .select("id, registered_customer_id")
         .eq("id", selectedCustomer.id)
         .single()
 
       if (!existingCustomer.data) {
-        // Create new customer record for registered customer
-        const { data: newCustomer, error: createError } = await supabase
-          .from("customers")
-          .insert({
-            registered_customer_id: selectedCustomer.id,
-            full_name: selectedCustomer.full_name,
-            phone: selectedCustomer.phone,
-            email: selectedCustomer.email,
-            membership_tier: selectedCustomer.membership_tier,
-            total_spent: 0,
-            total_visits: 0,
-            last_visit_date: null
-          })
-          .select("id")
-          .single()
-
-        if (createError) {
-          console.error('Failed to create customer record for redemption:', createError)
-          toast({
-            title: "Redemption Failed",
-            description: "Unable to process redemption for new customer",
-            variant: "destructive",
-          })
-          return
-        } else if (newCustomer) {
-          customerId = newCustomer.id
-        }
+        toast({
+          title: "Redemption Failed",
+          description: "Customer record not found",
+          variant: "destructive",
+        })
+        return
       }
+
+      if (!existingCustomer.data.registered_customer_id) {
+        toast({
+          title: "Redemption Failed",
+          description: "Only registered customers can redeem loyalty points",
+          variant: "destructive",
+        })
+        return
+      }
+
+      customerId = existingCustomer.data.id
 
       // Get loyalty account
       const { data: account } = await supabase
@@ -331,6 +326,22 @@ export function POSTerminal({ products: initialProducts, paymentMethods, currenc
         variant: "destructive",
       })
     }
+  }
+
+  const applyManualDiscount = (discount: number) => {
+    if (discount < 0) return
+    const discountDifference = discount - previousManualDiscount
+    if (discountDifference === 0) return
+    const currentSubtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0)
+    if (currentSubtotal === 0) return
+    setCartItems(prev => prev.map(item => {
+      const itemSubtotal = item.product.price * item.quantity
+      const proportion = itemSubtotal / currentSubtotal
+      const additionalDiscount = discountDifference * proportion
+      return { ...item, discount: item.discount + additionalDiscount }
+    }))
+    setPreviousManualDiscount(discount)
+    setManualDiscount(discount)
   }
 
   const generateUniqueInvoiceNumber = async (): Promise<string> => {
@@ -703,76 +714,88 @@ export function POSTerminal({ products: initialProducts, paymentMethods, currenc
             .eq("id", customerId)
 
           // Try to award loyalty points if loyalty system is available and program is selected
+          // Only award points to registered customers
           try {
-            // Use selected loyalty program (skip if "none" is selected)
-            const program = selectedLoyaltyProgram
+            // Check if customer is registered (has registered_customer_id)
+            const { data: customerRecord } = await supabase
+              .from("customers")
+              .select("registered_customer_id")
+              .eq("id", customerId)
+              .single()
 
-            if (program) {
-              // Calculate points based on program settings
-              pointsEarned = Math.floor(totals.total * program.points_per_currency)
+            if (!customerRecord?.registered_customer_id) {
+              console.log('Customer is not registered, skipping loyalty points')
+            } else {
+              // Use selected loyalty program (skip if "none" is selected)
+              const program = selectedLoyaltyProgram
 
-              if (pointsEarned > 0) {
-                // Get or create customer loyalty account
-                let { data: account } = await supabase
-                  .from("customer_loyalty_accounts")
-                  .select("*")
-                  .eq("customer_id", customerId)
-                  .eq("loyalty_program_id", program.id)
-                  .single()
+              if (program) {
+                // Calculate points based on program settings
+                pointsEarned = Math.floor(totals.total * program.points_per_currency)
 
-                if (!account) {
-                  // Create new loyalty account
-                  const { data: newAccount, error: accountError } = await supabase
+                if (pointsEarned > 0) {
+                  // Get or create customer loyalty account
+                  let { data: account } = await supabase
                     .from("customer_loyalty_accounts")
-                    .insert({
-                      customer_id: customerId,
-                      loyalty_program_id: program.id,
-                      tier: selectedCustomer.membership_tier || 'bronze',
-                      is_active: true
-                    })
-                    .select("id, current_points, total_points_earned")
+                    .select("*")
+                    .eq("customer_id", customerId)
+                    .eq("loyalty_program_id", program.id)
                     .single()
 
-                  if (accountError) {
-                    console.log('Failed to create loyalty account:', accountError)
-                    // Continue without loyalty if account creation fails
-                  } else {
-                    account = newAccount
-                  }
-                }
-
-                if (account) {
-                  // Create loyalty transaction
-                  const newBalance = (account.current_points || 0) + pointsEarned
-                  const { error: transactionError } = await supabase
-                    .from("loyalty_transactions")
-                    .insert({
-                      customer_loyalty_account_id: account.id,
-                      transaction_type: "earn",
-                      points: pointsEarned,
-                      points_balance_after: newBalance,
-                      sale_id: sale.id,
-                      reason: `Purchase: ${invoiceNumber}`,
-                      created_by: user.id,
-                    })
-
-                  if (transactionError) {
-                    console.log('Failed to create loyalty transaction:', transactionError)
-                  } else {
-                    // Update account balance
-                    await supabase
+                  if (!account) {
+                    // Create new loyalty account
+                    const { data: newAccount, error: accountError } = await supabase
                       .from("customer_loyalty_accounts")
-                      .update({
-                        current_points: newBalance,
-                        total_points_earned: (account.total_points_earned || 0) + pointsEarned,
-                        last_points_earned: new Date().toISOString()
+                      .insert({
+                        customer_id: customerId,
+                        loyalty_program_id: program.id,
+                        tier: selectedCustomer.membership_tier || 'bronze',
+                        is_active: true
                       })
-                      .eq("id", account.id)
+                      .select("id, current_points, total_points_earned")
+                      .single()
+
+                    if (accountError) {
+                      console.log('Failed to create loyalty account:', accountError)
+                      // Continue without loyalty if account creation fails
+                    } else {
+                      account = newAccount
+                    }
+                  }
+
+                  if (account) {
+                    // Create loyalty transaction
+                    const newBalance = (account.current_points || 0) + pointsEarned
+                    const { error: transactionError } = await supabase
+                      .from("loyalty_transactions")
+                      .insert({
+                        customer_loyalty_account_id: account.id,
+                        transaction_type: "earn",
+                        points: pointsEarned,
+                        points_balance_after: newBalance,
+                        sale_id: sale.id,
+                        reason: `Purchase: ${invoiceNumber}`,
+                        created_by: user.id,
+                      })
+
+                    if (transactionError) {
+                      console.log('Failed to create loyalty transaction:', transactionError)
+                    } else {
+                      // Update account balance
+                      await supabase
+                        .from("customer_loyalty_accounts")
+                        .update({
+                          current_points: newBalance,
+                          total_points_earned: (account.total_points_earned || 0) + pointsEarned,
+                          last_points_earned: new Date().toISOString()
+                        })
+                        .eq("id", account.id)
+                    }
                   }
                 }
+              } else {
+                console.log('No active loyalty program found')
               }
-            } else {
-              console.log('No active loyalty program found')
             }
           } catch (loyaltyError) {
             console.log('Loyalty system not available or error:', loyaltyError)

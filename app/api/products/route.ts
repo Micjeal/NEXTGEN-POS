@@ -34,7 +34,10 @@ export async function GET(request: NextRequest) {
       .select(`
         *,
         category:categories(*),
-        inventory(*)
+        inventory(*),
+        supplier_products(
+          supplier:suppliers(*)
+        )
       `)
       .order('name')
 
@@ -68,7 +71,7 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
     const body = await request.json()
-    const { name, barcode, category_id, price, cost_price, tax_rate, is_active, image_url, supplier_id, supplier_price, minimum_order_quantity, lead_time_days, is_preferred_supplier } = body
+    const { name, barcode, category_id, price, cost_price, tax_rate, is_active, image_url, expiry_date, supplier_id, supplier_price, minimum_order_quantity, lead_time_days, is_preferred_supplier } = body
 
     // Validate required fields
     if (!name || !name.trim()) {
@@ -119,6 +122,7 @@ export async function POST(request: NextRequest) {
       tax_rate: tax_rate ? Number.parseFloat(tax_rate) : 0,
       is_active: is_active ?? true,
       image_url: image_url || null,
+      expiry_date: expiry_date || null,
     }
 
     const serviceClient = createServiceClient()

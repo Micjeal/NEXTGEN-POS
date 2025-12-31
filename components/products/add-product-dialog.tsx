@@ -42,6 +42,7 @@ export function AddProductDialog({ categories, suppliers }: AddProductDialogProp
     tax_rate: "0",
     is_active: true,
     image_url: "",
+    expiry_date: "",
     // Supplier fields
     supplier_id: "",
     supplier_price: "",
@@ -249,6 +250,7 @@ export function AddProductDialog({ categories, suppliers }: AddProductDialogProp
         tax_rate: "0",
         is_active: true,
         image_url: "",
+        expiry_date: "",
         supplier_id: "",
         supplier_price: "",
         minimum_order_quantity: "1",
@@ -411,6 +413,16 @@ export function AddProductDialog({ categories, suppliers }: AddProductDialogProp
                     value={formData.barcode}
                     onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
                     placeholder="Scan or enter barcode"
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="expiry_date">Expiry Date</Label>
+                  <Input
+                    id="expiry_date"
+                    type="date"
+                    value={formData.expiry_date}
+                    onChange={(e) => setFormData({ ...formData, expiry_date: e.target.value })}
                   />
                 </div>
               </div>

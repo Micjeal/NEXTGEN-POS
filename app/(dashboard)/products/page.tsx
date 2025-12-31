@@ -1,6 +1,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { ProductsTable } from "@/components/products/products-table"
 import { AddProductDialog } from "@/components/products/add-product-dialog"
+import { ProductExportButtons } from "@/components/products/export-buttons"
 import type { Product, Category, Supplier } from "@/lib/types/database"
 import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
@@ -76,7 +77,10 @@ export default async function ProductsPage() {
           <h1 className="text-3xl font-bold">Products</h1>
           <p className="text-muted-foreground">Manage your product catalog</p>
         </div>
-        <AddProductDialog categories={(categories as Category[]) || []} suppliers={(suppliers as Supplier[]) || []} />
+        <div className="flex items-center gap-4">
+          <ProductExportButtons products={(products as Product[]) || []} />
+          <AddProductDialog categories={(categories as Category[]) || []} suppliers={(suppliers as Supplier[]) || []} />
+        </div>
       </div>
 
       <ProductsTable products={(products as Product[]) || []} categories={(categories as Category[]) || []} />

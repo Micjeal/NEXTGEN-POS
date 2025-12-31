@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import type { Product, Category } from "@/lib/types/database"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { MoreHorizontal, Pencil, Trash2, Search, Package } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { MoreHorizontal, Pencil, Trash2, Search, Package, Filter } from "lucide-react"
 import { formatCurrency } from "@/lib/utils/cart"
 import { EditProductDialog } from "./edit-product-dialog"
 import { DeleteProductDialog } from "./delete-product-dialog"
@@ -19,15 +20,24 @@ interface ProductsTableProps {
 }
 
 export function ProductsTable({ products, categories }: ProductsTableProps) {
+  const [mounted, setMounted] = useState(false)
   const [search, setSearch] = useState("")
+  const [categoryFilter, setCategoryFilter] = useState("all")
   const [editProduct, setEditProduct] = useState<Product | null>(null)
   const [deleteProduct, setDeleteProduct] = useState<Product | null>(null)
 
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   const filteredProducts = products.filter(
-    (p) =>
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.barcode?.toLowerCase().includes(search.toLowerCase()) ||
-      p.category?.name.toLowerCase().includes(search.toLowerCase()),
+    (p) => {
+      const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
+        p.barcode?.toLowerCase().includes(search.toLowerCase()) ||
+        p.category?.name.toLowerCase().includes(search.toLowerCase())
+      const matchesCategory = categoryFilter === "all" || !categoryFilter || p.category_id === categoryFilter
+      return matchesSearch && matchesCategory
+    }
   )
 
   return (
@@ -37,16 +47,34 @@ export function ProductsTable({ products, categories }: ProductsTableProps) {
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Package className="h-5 w-5" />
-              Product Catalog ({products.length})
+              Product Catalog {mounted ? `(${filteredProducts.length})` : ''}
             </CardTitle>
-            <div className="relative w-72">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search products..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
+            <div className="flex items-center gap-4">
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search products..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <Select value={categoryFilter || "all"} onValueChange={(value) => setCategoryFilter(value === "all" ? "" : value)}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="All Categories" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -58,9 +86,11 @@ export function ProductsTable({ products, categories }: ProductsTableProps) {
                 <TableHead>Name</TableHead>
                 <TableHead>Barcode</TableHead>
                 <TableHead>Category</TableHead>
+                <TableHead>Supplier</TableHead>
                 <TableHead className="text-right">Price</TableHead>
                 <TableHead className="text-right">Cost</TableHead>
                 <TableHead className="text-right">Tax %</TableHead>
+                <TableHead className="text-center">Expiry Date</TableHead>
                 <TableHead className="text-center">Stock</TableHead>
                 <TableHead className="text-center">Status</TableHead>
                 <TableHead className="w-12"></TableHead>
@@ -78,14 +108,19 @@ export function ProductsTable({ products, categories }: ProductsTableProps) {
                   const stock = product.inventory?.quantity || 0
                   const isLowStock = stock < (product.inventory?.min_stock_level || 10)
 
+                  const supplier = product.supplier_products?.[0]?.supplier
+                  const expiryDate = product.expiry_date ? new Date(product.expiry_date).toLocaleDateString() : "-"
+
                   return (
                     <TableRow key={product.id}>
                       <TableCell className="font-medium">{product.name}</TableCell>
                       <TableCell className="font-mono text-sm">{product.barcode || "-"}</TableCell>
                       <TableCell>{product.category?.name || "-"}</TableCell>
+                      <TableCell>{supplier?.name || "-"}</TableCell>
                       <TableCell className="text-right">{formatCurrency(product.price)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(product.cost_price)}</TableCell>
                       <TableCell className="text-right">{product.tax_rate}%</TableCell>
+                      <TableCell className="text-center">{expiryDate}</TableCell>
                       <TableCell className="text-center">
                         <Badge variant={isLowStock ? "destructive" : "secondary"}>{stock}</Badge>
                       </TableCell>

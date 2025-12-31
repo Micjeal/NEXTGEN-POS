@@ -40,7 +40,60 @@ export function InvoiceModal({ open, onOpenChange, invoiceNumber, items, totals,
             </Button>
           </DialogTitle>
         </DialogHeader>
-
+  
+        <style dangerouslySetInnerHTML={{__html: `
+          @media print {
+            body * {
+              visibility: hidden;
+            }
+            #invoice-content, #invoice-content * {
+              visibility: visible;
+            }
+            #invoice-content {
+              position: absolute;
+              left: 0;
+              top: 0;
+              width: 80mm;
+              height: auto;
+              font-size: 12px;
+              line-height: 1.2;
+              padding: 10px;
+              border: 1px solid #000;
+              background: white;
+              color: black;
+              margin: 0 auto;
+              box-sizing: border-box;
+            }
+            #invoice-content h2 {
+              font-size: 16px;
+              text-align: center;
+              margin-bottom: 10px;
+            }
+            #invoice-content p {
+              margin: 5px 0;
+            }
+            #invoice-content .grid {
+              display: block;
+            }
+            #invoice-content .grid div {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 5px;
+            }
+            #invoice-content .space-y-1 div {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 5px;
+            }
+            #invoice-content .text-center {
+              text-align: center;
+            }
+            #invoice-content .font-bold {
+              font-weight: bold;
+            }
+          }
+        `}} />
+  
         <div className="space-y-4 print:text-black" id="invoice-content">
           <div className="text-center">
             <h2 className="text-xl font-bold">SMMS Supermarket</h2>

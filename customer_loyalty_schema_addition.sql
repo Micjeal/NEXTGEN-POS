@@ -229,9 +229,7 @@ BEGIN
 
   -- Also update the membership_tier in customers table for consistency
   UPDATE customers
-  SET membership_tier = (
-    SELECT tier FROM customer_loyalty_accounts WHERE customer_id = NEW.customer_id
-  )
+  SET membership_tier = NEW.tier
   WHERE id = NEW.customer_id;
 
   RETURN NEW;

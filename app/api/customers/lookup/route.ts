@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
         .from("customers")
         .select(`
           id, phone, email, full_name, membership_tier, total_spent, total_visits,
-          registered_customer_id
+          last_visit_date, registered_customer_id
         `)
         .eq("phone", phone)
         .eq("is_active", true)
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
         .from("customers")
         .select(`
           id, phone, email, full_name, membership_tier, total_spent, total_visits,
-          registered_customer_id
+          last_visit_date, registered_customer_id
         `)
         .eq("email", email)
         .eq("is_active", true)
@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
         .from("customers")
         .select(`
           id, phone, email, full_name, membership_tier, total_spent, total_visits,
-          registered_customer_id
+          last_visit_date, registered_customer_id
         `)
         .eq("registered_customer_id", registeredCustomer.id)
         .single()
@@ -98,9 +98,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Get loyalty info if customer exists
+    // Get loyalty info if customer exists and is registered
     let loyaltyInfo = null
-    if (customer) {
+    if (customer && customer.registered_customer_id) {
       const { data: loyaltyAccount } = await serviceClient
         .from("customer_loyalty_accounts")
         .select(`
