@@ -1,26 +1,3 @@
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import {
-  ShoppingCart,
-  BarChart3,
-  Users,
-  Package,
-  Shield,
-  Zap,
-  CheckCircle,
-  ArrowRight,
-  Star,
-  TrendingUp,
-  DollarSign,
-  Clock,
-  Quote,
-  Monitor,
-  Smartphone,
-  Globe
-} from "lucide-react"
-import FAQSection from "@/components/faq-section"
 import LandingPageClient from './LandingPageClient'
 
 export const metadata = {

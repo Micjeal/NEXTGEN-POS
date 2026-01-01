@@ -2,6 +2,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { ProductsTable } from "@/components/products/products-table"
 import { AddProductDialog } from "@/components/products/add-product-dialog"
 import { ProductExportButtons } from "@/components/products/export-buttons"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { Product, Category, Supplier } from "@/lib/types/database"
 import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
@@ -31,7 +32,7 @@ export default async function ProductsPage() {
     redirect("/dashboard")
   }
 
-  // Fetch products via API
+  // Fetch all products via API
   const productsResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/products`, {
     headers: {
       cookie: (await cookies()).toString()
@@ -42,6 +43,19 @@ export default async function ProductsPage() {
   if (productsResponse.ok) {
     const data = await productsResponse.json()
     products = data.products || []
+  }
+
+  // Fetch online products via API
+  const onlineProductsResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/products?online_only=true`, {
+    headers: {
+      cookie: (await cookies()).toString()
+    }
+  })
+
+  let onlineProducts: Product[] = []
+  if (onlineProductsResponse.ok) {
+    const data = await onlineProductsResponse.json()
+    onlineProducts = data.products || []
   }
 
   // Fetch categories via API (assuming we create one)
@@ -83,7 +97,18 @@ export default async function ProductsPage() {
         </div>
       </div>
 
-      <ProductsTable products={(products as Product[]) || []} categories={(categories as Category[]) || []} />
+      <Tabs defaultValue="all" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="all">All Products</TabsTrigger>
+          <TabsTrigger value="online">Online Products</TabsTrigger>
+        </TabsList>
+        <TabsContent value="all">
+          <ProductsTable products={(products as Product[]) || []} categories={(categories as Category[]) || []} />
+        </TabsContent>
+        <TabsContent value="online">
+          <ProductsTable products={(onlineProducts as Product[]) || []} categories={(categories as Category[]) || []} />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

@@ -19,11 +19,11 @@ export async function POST(request: NextRequest) {
     // Check if user is admin
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role:roles(*)')
+      .select('*, role:roles(*)')
       .eq('id', user.id)
       .single()
 
-    if (!profile?.role || profile.role.name !== 'admin') {
+    if (!profile?.role || (profile.role as any)?.name !== 'admin') {
       return NextResponse.json({ error: "Admin access required" }, { status: 403 })
     }
 
@@ -64,12 +64,13 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ message: "Database optimized successfully" })
         } catch (error) {
           console.error('Database optimization error:', error)
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
           await supabase.from('system_logs').insert({
             event_type: 'db_optimization_failed',
-            message: `Database optimization failed: ${error.message}`,
+            message: `Database optimization failed: ${errorMessage}`,
             user_id: user.id
           })
-          return NextResponse.json({ error: "Database optimization failed", details: error.message }, { status: 500 })
+          return NextResponse.json({ error: "Database optimization failed", details: errorMessage }, { status: 500 })
         }
 
       case 'run_integrity_check':
@@ -116,9 +117,10 @@ export async function POST(request: NextRequest) {
             issues: checks
           })
         } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
           await supabase.from('system_logs').insert({
             event_type: 'integrity_check_failed',
-            message: `Database integrity check failed: ${error.message}`,
+            message: `Database integrity check failed: ${errorMessage}`,
             user_id: user.id
           })
           return NextResponse.json({ error: "Integrity check failed" }, { status: 500 })
@@ -146,11 +148,11 @@ export async function GET(request: NextRequest) {
     // Check if user is admin
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role:roles(*)')
+      .select('*, role:roles(*)')
       .eq('id', user.id)
       .single()
 
-    if (!profile?.role || profile.role.name !== 'admin') {
+    if (!profile?.role || (profile.role as any)?.name !== 'admin') {
       return NextResponse.json({ error: "Admin access required" }, { status: 403 })
     }
 
@@ -162,54 +164,113 @@ export async function GET(request: NextRequest) {
       uptime: '5 days, 3 hours'
     }
 
-    // Try to get real system info (will fail gracefully in most environments)
+    // Try to get real system info (cross-platform)
     try {
-      // Disk usage - try different commands for cross-platform compatibility
+      // Disk usage - try Unix/Linux first, then Windows
       try {
-        const { stdout: diskInfo } = await execAsync('df -h / | tail -1')
+        const { stdout: diskInfo } = await execAsync('df -h / | tail -1 2>/dev/null')
         const diskParts = diskInfo.trim().split(/\s+/)
         if (diskParts.length >= 5) {
           diagnostics.diskUsage.used = diskParts[2]
           diagnostics.diskUsage.total = diskParts[1]
           diagnostics.diskUsage.percentage = parseInt(diskParts[4].replace('%', '')) || 24
         }
-      } catch (diskError) {
-        console.log('Disk usage command not available, using defaults')
+      } catch (unixError) {
+        // Try Windows disk usage
+        try {
+          const { stdout } = await execAsync('wmic logicaldisk where "DeviceID=\'C:\'" get Size,FreeSpace /value 2>nul')
+          const lines = stdout.trim().split('\n')
+          let totalBytes = 0, freeBytes = 0
+          lines.forEach(line => {
+            if (line.startsWith('FreeSpace=')) freeBytes = parseInt(line.split('=')[1]) || 0
+            if (line.startsWith('Size=')) totalBytes = parseInt(line.split('=')[1]) || 0
+          })
+          if (totalBytes > 0) {
+            const usedBytes = totalBytes - freeBytes
+            const usedGB = (usedBytes / (1024 * 1024 * 1024)).toFixed(1)
+            const totalGB = (totalBytes / (1024 * 1024 * 1024)).toFixed(1)
+            diagnostics.diskUsage.used = `${usedGB} GB`
+            diagnostics.diskUsage.total = `${totalGB} GB`
+            diagnostics.diskUsage.percentage = Math.round((usedBytes / totalBytes) * 100)
+          }
+        } catch (windowsError) {
+          console.log('Disk usage command not available, using defaults')
+        }
       }
 
-      // Memory usage - try different commands
+      // Memory usage - try Unix/Linux first, then Windows
       try {
-        const { stdout: memInfo } = await execAsync('free -h | grep Mem')
+        const { stdout: memInfo } = await execAsync('free -h | grep Mem 2>/dev/null')
         const memParts = memInfo.trim().split(/\s+/)
         if (memParts.length >= 3) {
           diagnostics.memoryUsage.used = memParts[2]
           diagnostics.memoryUsage.total = memParts[1]
-          // Calculate percentage
           const usedBytes = parseFloat(memParts[2].replace(/[^0-9.]/g, '')) || 1.2
           const totalBytes = parseFloat(memParts[1].replace(/[^0-9.]/g, '')) || 4
           diagnostics.memoryUsage.percentage = Math.round((usedBytes / totalBytes) * 100)
         }
-      } catch (memError) {
-        console.log('Memory usage command not available, using defaults')
+      } catch (unixError) {
+        // Try Windows memory usage
+        try {
+          const { stdout } = await execAsync('wmic OS get TotalVisibleMemorySize,FreePhysicalMemory /value 2>nul')
+          const lines = stdout.trim().split('\n')
+          let totalKB = 0, freeKB = 0
+          lines.forEach(line => {
+            if (line.startsWith('FreePhysicalMemory=')) freeKB = parseInt(line.split('=')[1]) || 0
+            if (line.startsWith('TotalVisibleMemorySize=')) totalKB = parseInt(line.split('=')[1]) || 0
+          })
+          if (totalKB > 0) {
+            const usedKB = totalKB - freeKB
+            const usedGB = (usedKB / (1024 * 1024)).toFixed(1)
+            const totalGB = (totalKB / (1024 * 1024)).toFixed(1)
+            diagnostics.memoryUsage.used = `${usedGB} GB`
+            diagnostics.memoryUsage.total = `${totalGB} GB`
+            diagnostics.memoryUsage.percentage = Math.round((usedKB / totalKB) * 100)
+          }
+        } catch (windowsError) {
+          console.log('Memory usage command not available, using defaults')
+        }
       }
 
-      // CPU usage (simplified) - this is complex, keep as estimate
+      // CPU usage - try Windows first (more reliable), then fallback
       try {
-        const { stdout: cpuInfo } = await execAsync('wmic cpu get loadpercentage 2>nul || echo "15"')
-        const cpuValue = parseFloat(cpuInfo.trim()) || 15
+        const { stdout: cpuInfo } = await execAsync('wmic cpu get loadpercentage /value 2>nul || echo "LoadPercentage=15"')
+        const cpuMatch = cpuInfo.match(/LoadPercentage=(\d+)/)
+        const cpuValue = cpuMatch ? parseInt(cpuMatch[1]) : 15
         diagnostics.cpuUsage = Math.max(0, Math.min(100, cpuValue))
       } catch (cpuError) {
         console.log('CPU usage command not available, using defaults')
       }
 
-      // Uptime
+      // Uptime - try Unix/Linux first, then Windows
       try {
-        const { stdout: uptimeInfo } = await execAsync('uptime -p 2>/dev/null || wmic os get lastbootuptime 2>nul || echo "5 days, 3 hours"')
-        if (uptimeInfo.trim() && !uptimeInfo.includes('wmic')) {
+        const { stdout: uptimeInfo } = await execAsync('uptime -p 2>/dev/null')
+        if (uptimeInfo.trim()) {
           diagnostics.uptime = uptimeInfo.trim()
         }
-      } catch (uptimeError) {
-        console.log('Uptime command not available, using defaults')
+      } catch (unixError) {
+        // Try Windows uptime calculation
+        try {
+          const { stdout } = await execAsync('wmic os get lastbootuptime /value 2>nul')
+          const match = stdout.match(/LastBootUpTime=(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/)
+          if (match) {
+            const bootTime = new Date(
+              parseInt(match[1]), // year
+              parseInt(match[2]) - 1, // month (0-based)
+              parseInt(match[3]), // day
+              parseInt(match[4]), // hour
+              parseInt(match[5]), // minute
+              parseInt(match[6]) // second
+            )
+            const now = new Date()
+            const uptimeMs = now.getTime() - bootTime.getTime()
+            const days = Math.floor(uptimeMs / (1000 * 60 * 60 * 24))
+            const hours = Math.floor((uptimeMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+            diagnostics.uptime = `${days} days, ${hours} hours`
+          }
+        } catch (windowsError) {
+          console.log('Uptime command not available, using defaults')
+        }
       }
     } catch (error) {
       console.log('System diagnostics commands not available, using default values')

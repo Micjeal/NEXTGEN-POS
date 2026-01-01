@@ -99,12 +99,15 @@ export type Sale = {
   invoice_number: string
   user_id: string
   customer_id: string | null
+  order_type: "in-store" | "online"
   subtotal: number
   tax_amount: number
   discount_amount: number
   total: number
   status: "pending" | "completed" | "refunded" | "cancelled"
   notes: string | null
+  shipping_address?: any
+  payment_method?: string
   created_at: string
   items?: SaleItem[]
   payments?: Payment[]

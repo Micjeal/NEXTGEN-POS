@@ -47,18 +47,41 @@ export async function GET(request: NextRequest) {
     // Check API health (self-check)
     systemStatus.api = 'healthy'
 
-    // Check storage (simplified - in production use actual disk monitoring)
+    // Check storage (cross-platform)
     try {
-      const { stdout } = await execAsync('df -h / | tail -1 | awk \'{print $5}\' 2>/dev/null || echo "24%"')
-      const usagePercent = parseInt(stdout.trim().replace('%', '')) || 24
+      let usagePercent = 24 // default
+
+      // Try Unix/Linux command first
+      try {
+        const { stdout } = await execAsync('df -h / | tail -1 | awk \'{print $5}\' 2>/dev/null || echo "24%"')
+        usagePercent = parseInt(stdout.trim().replace('%', '')) || 24
+      } catch (unixError) {
+        // Try Windows command
+        try {
+          const { stdout } = await execAsync('wmic logicaldisk where "DeviceID=\'C:\'" get Size,FreeSpace /value 2>nul')
+          const lines = stdout.trim().split('\n')
+          let total = 0, free = 0
+          lines.forEach(line => {
+            if (line.startsWith('FreeSpace=')) free = parseInt(line.split('=')[1]) || 0
+            if (line.startsWith('Size=')) total = parseInt(line.split('=')[1]) || 0
+          })
+          if (total > 0) {
+            usagePercent = Math.round(((total - free) / total) * 100)
+          }
+        } catch (windowsError) {
+          // Both commands failed, use default
+          console.log('Storage check commands not available, using defaults')
+        }
+      }
+
       if (usagePercent > 90) {
         systemStatus.storage = 'error'
       } else if (usagePercent > 75) {
         systemStatus.storage = 'warning'
       }
     } catch (error) {
-      // If df command fails, assume healthy
-      console.log('Storage check command not available, assuming healthy')
+      // If all storage checks fail, assume healthy
+      console.log('Storage check failed, assuming healthy')
       systemStatus.storage = 'healthy'
     }
 

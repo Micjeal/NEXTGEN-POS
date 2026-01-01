@@ -24,7 +24,7 @@ export default async function NotificationsPage() {
   const userRole = (profile as any)?.role?.name || "cashier"
 
   // Fetch real unread messages
-  const { data: unreadMessages } = await supabase
+  const { data: unreadMessages, error: messagesError } = await supabase
     .from('messages')
     .select(`
       id,
@@ -35,10 +35,14 @@ export default async function NotificationsPage() {
       created_at,
       sender:profiles(full_name)
     `)
-    .or(`recipient_id.eq.${user.id},recipient_role.in.(${userRole})`)
+    .or(`recipient_id.eq.${user.id},recipient_role.eq.${userRole},message_type.eq.broadcast`)
     .eq('is_read', false)
     .order('created_at', { ascending: false })
     .limit(20)
+
+  console.log('User role:', userRole)
+  console.log('Unread messages query result:', unreadMessages)
+  console.log('Messages error:', messagesError)
 
   const messageNotifications = unreadMessages?.map((msg: any) => ({
     id: msg.id,
@@ -53,7 +57,7 @@ export default async function NotificationsPage() {
   })) || []
 
   // Fetch real email logs as notifications
-  const { data: emailLogs } = await supabase
+  const { data: emailLogs, error: emailError } = await supabase
     .from('email_logs')
     .select(`
       id,
@@ -66,6 +70,10 @@ export default async function NotificationsPage() {
     .eq('recipient_email', user.email)
     .order('sent_at', { ascending: false })
     .limit(20)
+
+  console.log('User email:', user.email)
+  console.log('Email logs query result:', emailLogs)
+  console.log('Email error:', emailError)
 
   const systemNotifications = emailLogs?.map((log: any) => ({
     id: log.id,
@@ -86,6 +94,11 @@ export default async function NotificationsPage() {
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   const unreadCount = allNotifications.filter(n => !n.read).length
+
+  console.log('Message notifications:', messageNotifications.length)
+  console.log('System notifications:', systemNotifications.length)
+  console.log('Total notifications:', allNotifications.length)
+  console.log('Unread count:', unreadCount)
 
   const getNotificationIcon = (type: string, priority?: string) => {
     if (type === 'message') {

@@ -19,19 +19,24 @@ export async function GET(request: NextRequest) {
       .single()
 
     const userRole = profile?.role?.name
-    if (!['admin', 'manager'].includes(userRole || '')) {
-      return NextResponse.json({ error: 'Admin or Manager access required' }, { status: 403 })
+    const isAdminOrManager = ['admin', 'manager'].includes(userRole || '')
+    const isCashier = userRole === 'cashier'
+
+    if (!isAdminOrManager && !isCashier) {
+      return NextResponse.json({ error: 'Unauthorized access' }, { status: 403 })
     }
 
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get('limit') || '1000')
+    const orderType = searchParams.get('order_type')
+    const status = searchParams.get('status')
 
     const serviceClient = createServiceClient()
-    const { data: sales, error } = await serviceClient
+    // First get the sales data
+    let query = serviceClient
       .from('sales')
       .select(`
         *,
-        profile:profiles(id, full_name),
         customer:customers(id, full_name, phone),
         items:sale_items(
           id,
@@ -46,14 +51,56 @@ export async function GET(request: NextRequest) {
           payment_method:payment_methods(name)
         )
       `)
-      .eq('status', 'completed')
       .order('created_at', { ascending: false })
       .limit(limit)
 
-    if (error) {
-      console.error('Error fetching sales:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    // Filter by status if specified, otherwise default to completed
+    if (status) {
+      query = query.eq('status', status)
+    } else {
+      query = query.eq('status', 'completed')
     }
+
+    // Filter by order type if specified
+    if (orderType) {
+      query = query.eq('order_type', orderType)
+    }
+
+    // For cashiers, only show their own sales
+    if (isCashier) {
+      query = query.eq('user_id', user.id)
+    }
+
+    const { data: salesData, error: salesError } = await query
+
+    if (salesError) {
+      console.error('Error fetching sales:', salesError)
+      return NextResponse.json({ error: salesError.message }, { status: 500 })
+    }
+
+    // Get unique user IDs from sales
+    const userIds = [...new Set((salesData || []).map(sale => sale.user_id).filter(Boolean))]
+
+    // Fetch profiles for these users
+    let profiles: Record<string, { id: string; full_name: string }> = {}
+    if (userIds.length > 0) {
+      const { data: profilesData } = await serviceClient
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', userIds)
+
+      profiles = (profilesData || []).reduce((acc, userProfile) => {
+        acc[userProfile.id] = userProfile
+        return acc
+      }, {} as Record<string, { id: string; full_name: string }>)
+    }
+
+    // Combine sales with profile data
+    const sales = (salesData || []).map(sale => ({
+      ...sale,
+      profile: profiles[sale.user_id] || null
+    }))
+
 
     return NextResponse.json({ sales: sales || [] })
   } catch (error) {

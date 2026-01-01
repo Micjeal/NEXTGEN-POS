@@ -452,16 +452,20 @@ export function ChatInterface({ initialMessages = [] }: ChatInterfaceProps) {
           <div className="px-6 py-4 space-y-6 pb-6">
             {messages.length === 0 && !loading && (
               <div className="flex items-center justify-center h-full text-center">
-                <div className="max-w-sm">
-                  <div className="w-16 h-16 bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <MessageSquare className="h-8 w-8 text-slate-400 dark:text-slate-500" />
+                <div className="max-w-lg">
+                  <div className="w-24 h-24 bg-gradient-to-r from-emerald-100 to-cyan-100 dark:from-emerald-900/30 dark:to-cyan-900/30 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-xl">
+                    <MessageSquare className="h-12 w-12 text-emerald-600 dark:text-emerald-400" />
                   </div>
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
-                    No messages yet
+                  <h3 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-4">
+                    Start the conversation
                   </h3>
-                  <p className="text-slate-500 dark:text-slate-400">
-                    Start a conversation with your team!
+                  <p className="text-slate-600 dark:text-slate-400 text-lg leading-relaxed mb-8">
+                    Send your first message to get the team chat rolling. Everyone will see your messages instantly.
                   </p>
+                  <div className="flex items-center justify-center gap-3 text-sm text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 rounded-full px-6 py-3">
+                    <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
+                    <span className="font-medium">All team members online</span>
+                  </div>
                 </div>
               </div>
             )}

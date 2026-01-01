@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -13,10 +13,13 @@ import {
   LogOut,
   Home,
   ShoppingBag,
+  ShoppingCart,
+  Package,
   Gift,
   CreditCard,
   Heart,
-  Star
+  Star,
+  Truck
 } from "lucide-react"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
@@ -34,12 +37,15 @@ export function CustomerNavbar() {
 
   const navigationItems = [
     { href: "/customer/dashboard", label: "Dashboard", icon: Home },
-    { href: "/customer/profile", label: "Profile", icon: User },
-    { href: "/customer/loyalty", label: "Loyalty", icon: Star },
-    { href: "/customer/orders", label: "Orders", icon: ShoppingBag },
+    { href: "/customer/products", label: "Products", icon: ShoppingBag },
+    { href: "/customer/cart", label: "Cart", icon: ShoppingCart },
+    { href: "/customer/checkout", label: "Checkout", icon: Truck },
+    { href: "/customer/orders", label: "Orders", icon: Package },
     { href: "/customer/rewards", label: "Rewards", icon: Gift },
     { href: "/customer/wishlist", label: "Wishlist", icon: Heart },
+    { href: "/customer/loyalty", label: "Loyalty", icon: Star },
     { href: "/customer/payments", label: "Payments", icon: CreditCard },
+    { href: "/customer/profile", label: "Profile", icon: User },
   ]
 
   return (
@@ -60,7 +66,7 @@ export function CustomerNavbar() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            {navigationItems.slice(0, 4).map((item) => (
+            {navigationItems.slice(0, 6).map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -104,13 +110,15 @@ export function CustomerNavbar() {
             </div>
 
             {/* Mobile menu button */}
-            <Sheet open={isOpen} onOpenChange={setIsOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="sm" className="md:hidden">
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="w-80">
+            <div suppressHydrationWarning>
+              <Sheet open={isOpen} onOpenChange={setIsOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="sm" className="md:hidden">
+                    <Menu className="h-5 w-5" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-80">
+                  <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
                 <div className="flex flex-col h-full">
                   {/* Mobile Header */}
                   <div className="flex items-center space-x-3 pb-6 border-b">
@@ -165,6 +173,7 @@ export function CustomerNavbar() {
                 </div>
               </SheetContent>
             </Sheet>
+            </div>
           </div>
         </div>
       </div>

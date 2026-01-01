@@ -27,8 +27,68 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search')
     const category = searchParams.get('category')
     const active = searchParams.get('active')
+    const onlineOnly = searchParams.get('online_only') === 'true'
 
     const serviceClient = createServiceClient()
+
+    if (onlineOnly) {
+      // For online products, we need to get products that have been sold online
+      const { data: onlineSaleItems, error: onlineError } = await serviceClient
+        .from('sale_items')
+        .select(`
+          product_id,
+          sales!inner(order_type, status)
+        `)
+        .eq('sales.order_type', 'online')
+        .eq('sales.status', 'completed')
+
+      if (onlineError) {
+        console.error('Error fetching online products:', onlineError)
+        return NextResponse.json({ error: onlineError.message }, { status: 500 })
+      }
+
+      const productIds = [...new Set((onlineSaleItems || []).map(item => item.product_id))]
+
+      if (productIds.length === 0) {
+        return NextResponse.json({ products: [] })
+      }
+
+      let query = serviceClient
+        .from('products')
+        .select(`
+          *,
+          category:categories(*),
+          inventory(*),
+          supplier_products(
+            supplier:suppliers(*)
+          )
+        `)
+        .in('id', productIds)
+        .order('name')
+
+      if (search) {
+        query = query.ilike('name', `%${search}%`)
+      }
+
+      if (category) {
+        query = query.eq('category_id', category)
+      }
+
+      if (active !== null) {
+        query = query.eq('is_active', active === 'true')
+      }
+
+      const { data: products, error } = await query
+
+      if (error) {
+        console.error('Error fetching online products:', error)
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+
+      return NextResponse.json({ products: products || [] })
+    }
+
+    // Regular query for all products
     let query = serviceClient
       .from('products')
       .select(`

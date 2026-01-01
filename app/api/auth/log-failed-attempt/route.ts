@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
+    const serviceClient = createServiceClient();
     const body = await request.json();
     const { email } = body;
 
@@ -14,8 +15,8 @@ export async function POST(request: NextRequest) {
     const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
     const userAgent = request.headers.get('user-agent') || 'unknown';
 
-    // Insert failed attempt
-    const { error: insertError } = await supabase
+    // Insert failed attempt using service client (bypasses RLS)
+    const { error: insertError } = await serviceClient
       .from('login_attempts')
       .insert({
         email,
@@ -29,9 +30,9 @@ export async function POST(request: NextRequest) {
       console.error('Error inserting login attempt:', insertError);
     }
 
-    // Check count of failed attempts in last 24 hours
+    // Check count of failed attempts in last 24 hours using service client
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { count, error: countError } = await supabase
+    const { count, error: countError } = await serviceClient
       .from('login_attempts')
       .select('*', { count: 'exact', head: true })
       .eq('email', email)
@@ -44,8 +45,8 @@ export async function POST(request: NextRequest) {
     }
 
     if (count && count > 4) {
-      // Create security incident
-      const { error: incidentError } = await supabase
+      // Create security incident using service client
+      const { error: incidentError } = await serviceClient
         .from('security_incidents')
         .insert({
           incident_type: 'brute_force_attempt',
@@ -60,11 +61,11 @@ export async function POST(request: NextRequest) {
         console.error('Error creating security incident:', incidentError);
       }
 
-      // Send message to admin
-      const { data: firstUser } = await supabase.from('profiles').select('id').limit(1).single();
+      // Send message to admin using service client
+      const { data: firstUser } = await serviceClient.from('profiles').select('id').limit(1).single();
       const senderId = firstUser?.id || '00000000-0000-0000-0000-000000000000';
 
-      const { error: messageError } = await supabase
+      const { error: messageError } = await serviceClient
         .from('messages')
         .insert({
           sender_id: senderId,

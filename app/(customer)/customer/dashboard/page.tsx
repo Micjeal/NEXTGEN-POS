@@ -45,8 +45,8 @@ export default async function CustomerDashboardPage() {
     if (customerRecord) {
       customer = customerRecord
 
-      // Get loyalty account
-      const { data: account } = await serviceClient
+      // Get loyalty account (most recent active one)
+      const { data: accounts } = await serviceClient
         .from("customer_loyalty_accounts")
         .select(`
           *,
@@ -54,7 +54,10 @@ export default async function CustomerDashboardPage() {
         `)
         .eq("customer_id", customer.id)
         .eq("is_active", true)
-        .single()
+        .order("created_at", { ascending: false })
+        .limit(1)
+
+      const account = accounts?.[0] || null
 
       if (account) {
         loyaltyAccount = account
@@ -106,8 +109,8 @@ export default async function CustomerDashboardPage() {
     if (customerRecord) {
       customer = customerRecord
 
-      // Get loyalty account
-      const { data: account } = await serviceClient
+      // Get loyalty account (most recent active one)
+      const { data: accounts } = await serviceClient
         .from("customer_loyalty_accounts")
         .select(`
           *,
@@ -115,7 +118,10 @@ export default async function CustomerDashboardPage() {
         `)
         .eq("customer_id", customer.id)
         .eq("is_active", true)
-        .single()
+        .order("created_at", { ascending: false })
+        .limit(1)
+
+      const account = accounts?.[0] || null
 
       if (account) {
         loyaltyAccount = account
@@ -180,7 +186,7 @@ export default async function CustomerDashboardPage() {
           </div>
           <div className="flex gap-2">
             <Button variant="secondary" size="sm" className="bg-white/10 hover:bg-white/20" asChild>
-              <Link href="/">
+              <Link href="/customer/products">
                 <ShoppingBag className="h-4 w-4 mr-2" />
                 Shop Now
               </Link>
@@ -256,7 +262,7 @@ export default async function CustomerDashboardPage() {
           </h2>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <Button className="h-auto p-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700" variant="default" asChild>
-              <Link href="/">
+              <Link href="/customer/products">
                 <div className="text-center">
                   <ShoppingBag className="h-6 w-6 mx-auto mb-2" />
                   <span className="text-sm font-medium">Shop Now</span>

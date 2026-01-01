@@ -25,6 +25,11 @@ CREATE INDEX IF NOT EXISTS idx_messages_parent_message_id ON public.messages(par
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can read their messages" ON public.messages;
+DROP POLICY IF EXISTS "Users can send messages" ON public.messages;
+DROP POLICY IF EXISTS "Users can mark messages as read" ON public.messages;
+
 -- Users can read messages sent to them, their role, or broadcasts
 CREATE POLICY "Users can read their messages" ON public.messages
     FOR SELECT USING (

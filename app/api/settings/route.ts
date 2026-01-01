@@ -5,6 +5,9 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
     const body = await request.json()
+    const { searchParams } = new URL(request.url)
+    const entityType = searchParams.get('entity_type')
+    const entityId = searchParams.get('entity_id')
 
     // Get current user
     const { data: { user } } = await supabase.auth.getUser()
@@ -24,38 +27,48 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Admin access required" }, { status: 403 })
     }
 
-    // For now, we'll store settings in a simple key-value table
-    // In a real app, you'd have a proper settings table
     const settings = body.settings
+
+    // Determine scope
+    const isSystemWide = !entityType || !entityId
+    const scopeData = isSystemWide ? {
+      is_system_wide: true,
+      entity_type: null,
+      entity_id: null
+    } : {
+      is_system_wide: false,
+      entity_type: entityType,
+      entity_id: entityId
+    }
 
     // Save each setting
     const settingsToSave = [
-      { key: 'system_name', value: settings.systemName },
-      { key: 'system_description', value: settings.systemDescription },
-      { key: 'business_address', value: settings.businessAddress },
-      { key: 'business_phone', value: settings.businessPhone },
-      { key: 'business_email', value: settings.businessEmail },
-      { key: 'tax_number', value: settings.taxNumber },
-      { key: 'store_logo', value: settings.storeLogo },
-      { key: 'currency', value: settings.currency },
-      { key: 'timezone', value: settings.timezone },
-      { key: 'low_stock_threshold', value: settings.lowStockThreshold.toString() },
-      { key: 'critical_stock_threshold', value: settings.criticalStockThreshold.toString() },
-      { key: 'auto_reorder_enabled', value: settings.autoReorderEnabled.toString() },
-      { key: 'default_reorder_quantity', value: settings.defaultReorderQuantity.toString() },
-      { key: 'receipt_header', value: settings.receiptHeader },
-      { key: 'receipt_footer', value: settings.receiptFooter },
-      { key: 'show_logo_on_receipt', value: settings.showLogoOnReceipt.toString() },
-      { key: 'include_tax_details', value: settings.includeTaxDetails.toString() },
-      { key: 'receipt_paper_size', value: settings.receiptPaperSize },
-      { key: 'payment_gateway_enabled', value: settings.paymentGatewayEnabled.toString() },
-      { key: 'barcode_scanner_enabled', value: settings.barcodeScannerEnabled.toString() },
-      { key: 'email_integration_enabled', value: settings.emailIntegrationEnabled.toString() },
-      { key: 'sms_integration_enabled', value: settings.smsIntegrationEnabled.toString() },
-      { key: 'enable_notifications', value: settings.enableNotifications.toString() },
-      { key: 'enable_audit_log', value: settings.enableAuditLog.toString() },
-      { key: 'auto_backup', value: settings.autoBackup.toString() },
-      { key: 'maintenance_mode', value: settings.maintenanceMode.toString() },
+      { key: 'system_name', value: settings.systemName, data_type: 'string' },
+      { key: 'system_description', value: settings.systemDescription, data_type: 'string' },
+      { key: 'business_address', value: settings.businessAddress, data_type: 'string' },
+      { key: 'business_phone', value: settings.businessPhone, data_type: 'string' },
+      { key: 'business_email', value: settings.businessEmail, data_type: 'string' },
+      { key: 'tax_number', value: settings.taxNumber, data_type: 'string' },
+      { key: 'store_logo', value: settings.storeLogo, data_type: 'string' },
+      { key: 'currency', value: settings.currency, data_type: 'string' },
+      { key: 'timezone', value: settings.timezone, data_type: 'string' },
+      { key: 'low_stock_threshold', value: settings.lowStockThreshold.toString(), data_type: 'number' },
+      { key: 'critical_stock_threshold', value: settings.criticalStockThreshold.toString(), data_type: 'number' },
+      { key: 'auto_reorder_enabled', value: settings.autoReorderEnabled.toString(), data_type: 'boolean' },
+      { key: 'default_reorder_quantity', value: settings.defaultReorderQuantity.toString(), data_type: 'number' },
+      { key: 'receipt_header', value: settings.receiptHeader, data_type: 'string' },
+      { key: 'receipt_footer', value: settings.receiptFooter, data_type: 'string' },
+      { key: 'show_logo_on_receipt', value: settings.showLogoOnReceipt.toString(), data_type: 'boolean' },
+      { key: 'include_tax_details', value: settings.includeTaxDetails.toString(), data_type: 'boolean' },
+      { key: 'receipt_paper_size', value: settings.receiptPaperSize, data_type: 'string' },
+      { key: 'payment_gateway_enabled', value: settings.paymentGatewayEnabled.toString(), data_type: 'boolean' },
+      { key: 'barcode_scanner_enabled', value: settings.barcodeScannerEnabled.toString(), data_type: 'boolean' },
+      { key: 'email_integration_enabled', value: settings.emailIntegrationEnabled.toString(), data_type: 'boolean' },
+      { key: 'sms_integration_enabled', value: settings.smsIntegrationEnabled.toString(), data_type: 'boolean' },
+      { key: 'enable_notifications', value: settings.enableNotifications.toString(), data_type: 'boolean' },
+      { key: 'enable_audit_log', value: settings.enableAuditLog.toString(), data_type: 'boolean' },
+      { key: 'auto_backup', value: settings.autoBackup.toString(), data_type: 'boolean' },
+      { key: 'maintenance_mode', value: settings.maintenanceMode.toString(), data_type: 'boolean' },
     ]
 
     // Upsert settings
@@ -63,20 +76,22 @@ export async function POST(request: NextRequest) {
       const { error } = await supabase
         .from("system_settings")
         .upsert({
+          ...scopeData,
           key: setting.key,
           value: setting.value,
+          data_type: setting.data_type,
           updated_by: user.id,
           updated_at: new Date().toISOString()
         }, {
-          onConflict: 'key'
+          onConflict: 'entity_type,entity_id,key'
         })
 
       if (error) {
         console.error(`Error saving setting ${setting.key}:`, error)
         if (error.code === 'PGRST116' || error.code === 'PGRST205') {
           return NextResponse.json({
-            error: "Database table 'system_settings' not found. Please run the database seed script first.",
-            details: "Execute the SQL in scripts/004_seed_data.sql in your Supabase SQL editor."
+            error: "Database table 'system_settings' not found. Please run the database migration first.",
+            details: "Execute the SQL in create_system_settings_table.sql in your Supabase SQL editor."
           }, { status: 500 })
         }
         return NextResponse.json({ error: `Failed to save setting: ${setting.key}` }, { status: 500 })
@@ -94,6 +109,9 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
+    const { searchParams } = new URL(request.url)
+    const entityType = searchParams.get('entity_type')
+    const entityId = searchParams.get('entity_id')
 
     // Get current user
     const { data: { user } } = await supabase.auth.getUser()
@@ -111,10 +129,20 @@ export async function GET(request: NextRequest) {
     const userRole = profile?.role?.name
     // All authenticated users can read settings, no role restriction
 
-    // Fetch all settings
-    const { data: settingsData, error } = await supabase
+    // Build query based on scope
+    let query = supabase
       .from("system_settings")
-      .select("key, value")
+      .select("key, value, data_type")
+
+    if (entityType && entityId) {
+      // Entity-specific settings
+      query = query.eq('entity_type', entityType).eq('entity_id', entityId)
+    } else {
+      // Global settings (backward compatibility)
+      query = query.eq('is_system_wide', true)
+    }
+
+    const { data: settingsData, error } = await query
 
     let settings: any[] | null = settingsData
 
@@ -130,31 +158,23 @@ export async function GET(request: NextRequest) {
     // Convert to object
     const settingsObj: Record<string, any> = {}
     settings?.forEach(setting => {
-      settingsObj[setting.key] = setting.value
-    })
-
-    // Convert string booleans back to booleans
-    const booleanKeys = [
-      'auto_reorder_enabled', 'show_logo_on_receipt', 'include_tax_details',
-      'payment_gateway_enabled', 'barcode_scanner_enabled', 'email_integration_enabled',
-      'sms_integration_enabled', 'enable_notifications', 'enable_audit_log',
-      'auto_backup', 'maintenance_mode'
-    ]
-
-    booleanKeys.forEach(key => {
-      if (settingsObj[key] !== undefined) {
-        settingsObj[key] = settingsObj[key] === 'true'
+      let value = setting.value
+      // Convert based on data_type
+      if (setting.data_type === 'boolean') {
+        value = value === 'true'
+      } else if (setting.data_type === 'number') {
+        value = parseFloat(value) || 0
+      } else if (setting.data_type === 'json') {
+        try {
+          value = JSON.parse(value)
+        } catch (e) {
+          value = null
+        }
       }
+      settingsObj[setting.key] = value
     })
 
-    // Convert numbers
-    const numberKeys = ['low_stock_threshold', 'critical_stock_threshold', 'default_reorder_quantity']
-    numberKeys.forEach(key => {
-      if (settingsObj[key] !== undefined) {
-        settingsObj[key] = parseInt(settingsObj[key]) || 0
-      }
-    })
-
+    // Return settings with defaults for missing values
     return NextResponse.json({
       systemName: settingsObj.system_name || "POS System",
       systemDescription: settingsObj.system_description || "Supermarket Management System",

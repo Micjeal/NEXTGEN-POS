@@ -16,6 +16,7 @@ import { useRouter } from "next/navigation"
 export default function CustomerRewardsPage() {
   const [customer, setCustomer] = useState<any>(null)
   const [loyaltyAccount, setLoyaltyAccount] = useState<any>(null)
+  const [redemptionHistory, setRedemptionHistory] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isRedeeming, setIsRedeeming] = useState<string | null>(null)
   const { toast } = useToast()
@@ -63,6 +64,16 @@ export default function CustomerRewardsPage() {
           .single()
 
         setLoyaltyAccount(account)
+
+        // Get redemption history
+        const { data: redemptions } = await supabase
+          .from("loyalty_transactions")
+          .select("*")
+          .eq("customer_loyalty_account_id", account.id)
+          .eq("transaction_type", "redeem")
+          .order("created_at", { ascending: false })
+
+        setRedemptionHistory(redemptions || [])
       }
     } catch (error) {
       console.error('Error loading data:', error)
@@ -342,13 +353,39 @@ export default function CustomerRewardsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8">
-                <Award className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No redemptions yet</h3>
-                <p className="text-muted-foreground">
-                  Your redeemed rewards will appear here.
-                </p>
-              </div>
+              {redemptionHistory.length === 0 ? (
+                <div className="text-center py-8">
+                  <Award className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No redemptions yet</h3>
+                  <p className="text-muted-foreground">
+                    Your redeemed rewards will appear here.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {redemptionHistory.map((redemption: any) => (
+                    <div key={redemption.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
+                          <Award className="h-5 w-5 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="font-semibold">{redemption.description || 'Reward Redeemed'}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {new Date(redemption.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-red-600">-{redemption.points} points</p>
+                        <p className="text-sm text-muted-foreground">
+                          Balance: {redemption.points_balance_after}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 

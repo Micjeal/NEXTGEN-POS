@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { ShoppingCart, LayoutDashboard, Package, Warehouse, Users, BarChart3, Settings, LogOut, CreditCard, MessageSquare, Building2, FileText, Receipt, Shield, UserCheck, Award, Eye } from "lucide-react"
+import { ShoppingCart, LayoutDashboard, Package, Warehouse, Users, BarChart3, Settings, LogOut, CreditCard, MessageSquare, Building2, FileText, Receipt, Shield, UserCheck, Award, Eye, Globe } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -15,6 +15,7 @@ const navigation = [
   { name: "Overview", href: "/home", icon: LayoutDashboard, roles: ["admin", "manager", "cashier"] },
   { name: "POS Terminal", href: "/pos", icon: ShoppingCart, roles: ["admin", "manager", "cashier"] },
   { name: "All Transactions", href: "/transactions", icon: Receipt, roles: ["admin", "manager", "cashier"] },
+  { name: "Online Orders", href: "/online-orders", icon: Globe, roles: ["admin", "manager"] },
   { name: "Cash Draw", href: "/cash-draw", icon: CreditCard, roles: ["admin", "manager", "cashier"] },
   { name: "Customers", href: "/customers", icon: UserCheck, roles: ["admin", "manager", "cashier"] },
   { name: "Loyalty", href: "/loyalty", icon: Award, roles: ["admin", "manager"] },

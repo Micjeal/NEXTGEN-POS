@@ -17,8 +17,46 @@ export default async function CustomerPaymentsPage() {
     redirect("/auth/customer-login")
   }
 
-  // For now, show empty state since we don't have payment methods functionality implemented
-  // In a real implementation, you'd fetch saved payment methods from a payment_methods table
+  // Get customer data
+  const { data: registeredCustomer } = await serviceClient
+    .from("registered_customers")
+    .select("id")
+    .eq("user_id", user.id)
+    .single()
+
+  let customer = null
+  let paymentTransactions: any[] = []
+
+  if (registeredCustomer) {
+    const { data: customerData } = await serviceClient
+      .from("customers")
+      .select("id")
+      .eq("registered_customer_id", registeredCustomer.id)
+      .single()
+
+    if (customerData) {
+      customer = customerData
+
+      // Get payment transaction history (sales with payment info)
+      const { data: transactions } = await serviceClient
+        .from("sales")
+        .select(`
+          id,
+          invoice_number,
+          total,
+          payment_method,
+          payment_status,
+          created_at,
+          status
+        `)
+        .eq("customer_id", customer.id)
+        .not("payment_status", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(10)
+
+      paymentTransactions = transactions || []
+    }
+  }
 
   return (
     <div className="space-y-6">

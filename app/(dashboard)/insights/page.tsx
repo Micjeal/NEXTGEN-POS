@@ -82,7 +82,7 @@ export default function InsightsPage() {
         profitRes,
         predictiveRes
       ] = await Promise.all([
-        fetch('/api/insights/real-time'),
+        fetch('/api/insights'),
         fetch('/api/insights/clv'),
         fetch('/api/insights/profit-margins'),
         fetch('/api/insights/predictive')
