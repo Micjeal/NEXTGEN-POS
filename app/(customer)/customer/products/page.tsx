@@ -263,9 +263,16 @@ export default function CustomerProductsPage() {
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        console.error('Cart API error:', errorData)
-        throw new Error(errorData.error || 'Failed to add item to cart')
+        console.error('Cart API error:', response.status, response.statusText)
+        let errorData: ApiError = {}
+        try {
+          errorData = await response.json()
+        } catch (e) {
+          console.error('Failed to parse error response:', e)
+        }
+        console.error('Error data:', errorData)
+        const errorMessage = (errorData as ApiError).error || (errorData as ApiError).message || `Failed to add item to cart (${response.status})`
+        throw new Error(errorMessage)
       }
 
       toast({

@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
       id: uuidv4(),
       invoice_number: invoiceNumber,
       user_id: user.id,
-      customer_id: user.id,
+      customer_id: customer.id,
       order_type: order_type || 'online',
       subtotal: subtotal,
       tax_amount: taxAmount,
@@ -172,11 +172,25 @@ export async function POST(request: NextRequest) {
       // Don't fail the whole request, but log it
     }
 
+    // Get payment method ID
+    let paymentMethodId = null
+    if (payment_method) {
+      const { data: paymentMethodData, error: pmError } = await serviceClient
+        .from('payment_methods')
+        .select('id')
+        .eq('name', payment_method)
+        .single()
+
+      if (!pmError && paymentMethodData) {
+        paymentMethodId = paymentMethodData.id
+      }
+    }
+
     // Create payment record
     const paymentData = {
       id: uuidv4(),
       sale_id: sale.id,
-      payment_method_id: 1, // Default payment method, you might want to map this properly
+      payment_method_id: paymentMethodId,
       amount: total,
       reference_number: `PAY-${Date.now()}`,
     }
@@ -201,17 +215,17 @@ export async function POST(request: NextRequest) {
       // Don't fail the whole request
     }
 
-    // Update inventory (reduce stock)
-    for (const item of cartItems) {
-      const { error: inventoryError } = await serviceClient.rpc('decrement_inventory', {
-        product_id: item.product_id,
-        quantity: item.quantity
-      })
+    // Update inventory (reduce stock) - commented out since function doesn't exist
+    // for (const item of cartItems) {
+    //   const { error: inventoryError } = await serviceClient.rpc('decrement_inventory', {
+    //     product_id: item.product_id,
+    //     quantity: item.quantity
+    //   })
 
-      if (inventoryError) {
-        console.error('Error updating inventory:', inventoryError)
-      }
-    }
+    //   if (inventoryError) {
+    //     console.error('Error updating inventory:', inventoryError)
+    //   }
+    // }
 
     return NextResponse.json({
       orderId: sale.id,

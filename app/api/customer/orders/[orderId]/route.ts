@@ -52,21 +52,17 @@ export async function GET(
         discount_amount,
         status,
         created_at,
-        updated_at,
         payment_method,
-        payment_status,
         notes,
         sale_items (
           id,
           quantity,
           unit_price,
-          total_price,
+          line_total,
           products (
             id,
             name,
-            description,
-            image_url,
-            sku
+            image_url
           )
         )
       `)

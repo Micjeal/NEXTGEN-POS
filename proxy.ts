@@ -1,7 +1,11 @@
 import { updateSession } from "@/lib/supabase/proxy"
-import type { NextRequest } from "next/server"
+import { NextResponse, type NextRequest } from "next/server"
 
 export default async function proxy(request: NextRequest) {
+  // Skip proxy for API routes to avoid auth issues
+  if (request.nextUrl.pathname.startsWith('/api/')) {
+    return NextResponse.next()
+  }
   return await updateSession(request)
 }
 

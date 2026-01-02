@@ -3,7 +3,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient()
@@ -13,20 +13,35 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check user role
+    // Check user role - try profiles first, fallback to registered_customers
+    let userRole = null
     const { data: profile } = await supabase
       .from('profiles')
       .select('*, role:roles(*)')
       .eq('id', user.id)
       .single()
 
-    const userRole = profile?.role?.name
+    if (profile) {
+      userRole = profile.role?.name
+    } else {
+      // Check if user is a registered customer
+      const { data: regCustomer } = await supabase
+        .from('registered_customers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single()
+
+      if (regCustomer) {
+        userRole = 'customer'
+      }
+    }
+
     if (!['admin', 'manager'].includes(userRole || '')) {
       return NextResponse.json({ error: 'Admin or Manager access required' }, { status: 403 })
     }
 
     const { status } = await request.json()
-    const saleId = params.id
+    const { id: saleId } = await params
 
     if (!status || !['pending', 'completed', 'cancelled'].includes(status)) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 })

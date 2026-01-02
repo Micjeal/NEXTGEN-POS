@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate adjustment type
-    const validTypes = ['add', 'remove', 'set', 'sale', 'return']
+    const validTypes = ['add', 'remove', 'set', 'sale', 'return', 'manual', 'purchase', 'adjustment']
     if (!validTypes.includes(adjustment_type)) {
       return NextResponse.json({
         error: 'Invalid adjustment type'
@@ -58,19 +58,19 @@ export async function POST(request: NextRequest) {
     // Calculate new quantity
     switch (adjustment_type) {
       case 'add':
+      case 'purchase':
+      case 'return':
         quantityAfter = quantityBefore + Math.abs(quantity_change)
         break
       case 'remove':
-        quantityAfter = Math.max(0, quantityBefore - Math.abs(quantity_change))
-        break
-      case 'set':
-        quantityAfter = Math.max(0, quantity_change)
-        break
       case 'sale':
         quantityAfter = Math.max(0, quantityBefore - Math.abs(quantity_change))
         break
-      case 'return':
-        quantityAfter = quantityBefore + Math.abs(quantity_change)
+      case 'set':
+      case 'manual':
+      case 'adjustment':
+        // For these types, quantity_change represents the absolute new quantity
+        quantityAfter = Math.max(0, quantity_change)
         break
       default:
         quantityAfter = quantityBefore

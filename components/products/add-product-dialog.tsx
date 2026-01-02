@@ -56,13 +56,67 @@ export function AddProductDialog({ categories, suppliers }: AddProductDialogProp
   const handleImageUpload = async (file: File) => {
     if (!file) return null
 
+    console.log('Starting image upload for file:', file.name, 'Size:', file.size, 'Type:', file.type)
     setIsUploading(true)
     const supabase = createClient()
-    const fileExt = file.name.split('.').pop()
+
+    // Check authentication first
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      console.error('Authentication error:', authError)
+      throw new Error('You must be logged in to upload images')
+    }
+    console.log('User authenticated:', user.id)
+
+    const fileExt = file.name.split('.').pop()?.toLowerCase()
     const fileName = `${uuidv4()}.${fileExt}`
     const filePath = `product-images/${fileName}`
 
     try {
+      // Validate file
+      const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp']
+      const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+
+      console.log('File validation:', {
+        fileName: file.name,
+        fileExt: fileExt,
+        mimeType: file.type,
+        allowedExtensions,
+        allowedMimeTypes
+      })
+
+      // Check MIME type first (more reliable)
+      if (!allowedMimeTypes.includes(file.type)) {
+        throw new Error(`Invalid file type. Please upload image files (JPG, PNG, GIF, WebP). Detected MIME type: ${file.type}`)
+      }
+
+      // If file has extension, check it too (but don't fail if no extension)
+      if (fileExt && !allowedExtensions.includes(fileExt)) {
+        console.warn(`File extension '${fileExt}' not in allowed list, but MIME type is valid. Proceeding with upload.`)
+      }
+
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        throw new Error('File size too large. Please upload images smaller than 5MB.')
+      }
+
+      // Check if bucket exists
+      const { data: buckets, error: listError } = await supabase.storage.listBuckets()
+      if (listError) {
+        console.error('Error listing buckets:', listError)
+        throw new Error('Unable to access storage. Please check your configuration.')
+      }
+
+      const bucketExists = buckets.some(bucket => bucket.name === 'products')
+      if (!bucketExists) {
+        console.warn('Products bucket does not exist')
+        toast({
+          title: "Storage Not Configured",
+          description: "Image upload is not available. Product will be created without an image.",
+          variant: "default",
+        })
+        return null
+      }
+
       const { error: uploadError } = await supabase.storage
         .from('products')
         .upload(filePath, file, {
@@ -71,17 +125,8 @@ export function AddProductDialog({ categories, suppliers }: AddProductDialogProp
         })
 
       if (uploadError) {
-        // Check if it's a "bucket not found" error
-        if (uploadError.message?.includes('Bucket not found') || uploadError.message?.includes('not found')) {
-          console.warn('Storage bucket not configured. Image upload skipped.')
-          toast({
-            title: "Storage Not Configured",
-            description: "Image upload is not available. Product will be created without an image.",
-            variant: "default",
-          })
-          return null
-        }
-        throw uploadError
+        console.error('Upload error details:', uploadError)
+        throw new Error(uploadError.message || 'Failed to upload image to storage')
       }
 
       // Get the public URL
@@ -93,19 +138,12 @@ export function AddProductDialog({ categories, suppliers }: AddProductDialogProp
     } catch (error) {
       console.error('Error uploading image:', error)
 
-      // Handle bucket not found errors gracefully
-      if (error instanceof Error && (error.message.includes('Bucket not found') || error.message.includes('not found'))) {
-        toast({
-          title: "Storage Not Available",
-          description: "Image upload is not configured. Product will be created without an image.",
-          variant: "default",
-        })
-        return null
-      }
+      const errorMessage = error instanceof Error ? error.message : "Failed to upload image"
+      console.error('Final error message:', errorMessage)
 
       toast({
         title: "Upload Failed",
-        description: error instanceof Error ? error.message : "Failed to upload image",
+        description: errorMessage,
         variant: "destructive",
       })
       return null
@@ -190,13 +228,16 @@ export function AddProductDialog({ categories, suppliers }: AddProductDialogProp
       }
 
       let imageUrl = formData.image_url
-      
+      let uploadFailed = false
+
       // Handle image upload if there's a file selected
       if (fileInputRef.current?.files?.[0]) {
         const file = fileInputRef.current.files[0]
         const uploadedUrl = await handleImageUpload(file)
         if (uploadedUrl) {
           imageUrl = uploadedUrl
+        } else {
+          uploadFailed = true
         }
       }
 
@@ -234,10 +275,18 @@ export function AddProductDialog({ categories, suppliers }: AddProductDialogProp
       const { product: newProduct } = await response.json()
       console.log('Product created successfully:', newProduct)
 
-      toast({
-        title: "Success",
-        description: `${formData.name} has been added to the catalog`,
-      })
+      if (uploadFailed) {
+        toast({
+          title: "Product Added",
+          description: `${formData.name} has been added to the catalog, but image upload failed. Please try uploading the image again.`,
+          variant: "default",
+        })
+      } else {
+        toast({
+          title: "Success",
+          description: `${formData.name} has been added to the catalog${imageUrl ? ' with image' : ''}`,
+        })
+      }
 
       // Reset form
       setOpen(false)
@@ -512,7 +561,7 @@ export function AddProductDialog({ categories, suppliers }: AddProductDialogProp
                           type="file"
                           ref={fileInputRef}
                           onChange={handleImageChange}
-                          accept="image/png, image/jpeg, image/gif"
+                          accept="image/png, image/jpeg, image/gif, image/webp"
                           className="hidden"
                           id="product-image"
                           aria-label="Upload product image"
@@ -531,7 +580,7 @@ export function AddProductDialog({ categories, suppliers }: AddProductDialogProp
                           )}
                           {isUploading ? 'Uploading...' : 'Upload Image'}
                         </Button>
-                        <p className="mt-1 text-xs text-muted-foreground">JPG, PNG or GIF (max 5MB)</p>
+                        <p className="mt-1 text-xs text-muted-foreground">JPG, PNG, GIF or WebP (max 5MB)</p>
                       </div>
                     </div>
                   </div>

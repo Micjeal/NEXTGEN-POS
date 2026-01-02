@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
     // Get unique user IDs from sales
     const userIds = [...new Set((salesData || []).map(sale => sale.user_id).filter(Boolean))]
 
-    // Fetch profiles for these users
+    // Fetch profiles for these users (for admin/staff users)
     let profiles: Record<string, { id: string; full_name: string }> = {}
     if (userIds.length > 0) {
       const { data: profilesData } = await serviceClient
@@ -89,10 +89,30 @@ export async function GET(request: NextRequest) {
         .select('id, full_name')
         .in('id', userIds)
 
-      profiles = (profilesData || []).reduce((acc, userProfile) => {
-        acc[userProfile.id] = userProfile
-        return acc
-      }, {} as Record<string, { id: string; full_name: string }>)
+      if (profilesData) {
+        profiles = profilesData.reduce((acc, userProfile) => {
+          acc[userProfile.id] = userProfile
+          return acc
+        }, {} as Record<string, { id: string; full_name: string }>)
+      }
+
+      // For users without profiles (customers), try to get from registered_customers
+      const profileLessUsers = userIds.filter(id => !profiles[id])
+      if (profileLessUsers.length > 0) {
+        const { data: regCustomers } = await serviceClient
+          .from('registered_customers')
+          .select('user_id, full_name')
+          .in('user_id', profileLessUsers)
+
+        if (regCustomers) {
+          regCustomers.forEach(regCustomer => {
+            profiles[regCustomer.user_id] = {
+              id: regCustomer.user_id,
+              full_name: regCustomer.full_name
+            }
+          })
+        }
+      }
     }
 
     // Combine sales with profile data

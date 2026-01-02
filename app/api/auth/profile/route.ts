@@ -12,32 +12,68 @@ export async function GET(request: NextRequest) {
 
     const serviceClient = createServiceClient()
 
-    // Get user profile
+    // Get user profile (for admin/staff users)
     const { data: profile, error: profileError } = await serviceClient
       .from('profiles')
       .select('*')
       .eq('id', user.id)
       .single()
 
-    if (profileError) {
+    // Get registered customer data
+    const { data: registeredCustomer, error: regError } = await serviceClient
+      .from('registered_customers')
+      .select('*')
+      .eq('user_id', user.id)
+      .single()
+
+    if (regError && profileError) {
       console.error('Error fetching profile:', profileError)
+      console.error('Error fetching registered customer:', regError)
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
     }
 
-    // Get customer data
-    const { data: customer, error: customerError } = await serviceClient
-      .from('customers')
-      .select('*')
-      .eq('id', user.id)
-      .single()
+    let customer = null
+    if (!regError && registeredCustomer) {
+      // Get or create customer record
+      let { data: customerData, error: customerError } = await serviceClient
+        .from('customers')
+        .select('*')
+        .eq('registered_customer_id', registeredCustomer.id)
+        .single()
 
-    if (customerError) {
-      console.error('Error fetching customer:', customerError)
-      return NextResponse.json({ error: 'Customer profile not found' }, { status: 404 })
+      if (customerError && customerError.code === 'PGRST116') { // Not found
+        // Create customer record if it doesn't exist
+        const { data: newCustomer, error: createError } = await serviceClient
+          .from('customers')
+          .insert({
+            phone: registeredCustomer.phone,
+            email: registeredCustomer.email,
+            full_name: registeredCustomer.full_name,
+            date_of_birth: registeredCustomer.date_of_birth,
+            gender: registeredCustomer.gender,
+            address: registeredCustomer.address,
+            city: registeredCustomer.city,
+            country: registeredCustomer.country,
+            registered_customer_id: registeredCustomer.id,
+            first_visit_date: new Date().toISOString(),
+          })
+          .select()
+          .single()
+
+        if (createError) {
+          console.error('Error creating customer:', createError)
+          return NextResponse.json({ error: 'Failed to create customer profile' }, { status: 500 })
+        }
+        customerData = newCustomer
+      } else if (customerError) {
+        console.error('Error fetching customer:', customerError)
+        return NextResponse.json({ error: 'Customer profile not found' }, { status: 404 })
+      }
+      customer = customerData
     }
 
     return NextResponse.json({
-      profile,
+      profile: profile || null,
       customer
     })
 

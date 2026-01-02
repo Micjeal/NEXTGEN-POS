@@ -87,6 +87,7 @@ export function ProductsTable({ products, categories }: ProductsTableProps) {
                 <TableHead>Barcode</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Supplier</TableHead>
+                <TableHead className="text-center">Image</TableHead>
                 <TableHead className="text-right">Price</TableHead>
                 <TableHead className="text-right">Cost</TableHead>
                 <TableHead className="text-right">Tax %</TableHead>
@@ -99,7 +100,7 @@ export function ProductsTable({ products, categories }: ProductsTableProps) {
             <TableBody>
               {filteredProducts.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                     No products found
                   </TableCell>
                 </TableRow>
@@ -109,7 +110,11 @@ export function ProductsTable({ products, categories }: ProductsTableProps) {
                   const isLowStock = stock < (product.inventory?.min_stock_level || 10)
 
                   const supplier = product.supplier_products?.[0]?.supplier
-                  const expiryDate = product.expiry_date ? new Date(product.expiry_date).toLocaleDateString() : "-"
+                  const expiryDate = product.expiry_date ? new Date(product.expiry_date).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                  }) : "-"
 
                   return (
                     <TableRow key={product.id}>
@@ -117,6 +122,19 @@ export function ProductsTable({ products, categories }: ProductsTableProps) {
                       <TableCell className="font-mono text-sm">{product.barcode || "-"}</TableCell>
                       <TableCell>{product.category?.name || "-"}</TableCell>
                       <TableCell>{supplier?.name || "-"}</TableCell>
+                      <TableCell className="text-center">
+                        {product.image_url ? (
+                          <img
+                            src={product.image_url}
+                            alt={product.name}
+                            className="w-12 h-12 object-cover rounded border mx-auto"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-gray-100 rounded border flex items-center justify-center mx-auto">
+                            <Package className="h-6 w-6 text-gray-400" />
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right">{formatCurrency(product.price)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(product.cost_price)}</TableCell>
                       <TableCell className="text-right">{product.tax_rate}%</TableCell>

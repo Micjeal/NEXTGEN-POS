@@ -22,7 +22,7 @@ interface AdjustInventoryDialogProps {
 
 export function AdjustInventoryDialog({ product, open, onOpenChange }: AdjustInventoryDialogProps) {
   const [isLoading, setIsLoading] = useState(false)
-  const [adjustmentType, setAdjustmentType] = useState<"add" | "remove" | "set">("add")
+  const [adjustmentType, setAdjustmentType] = useState<string>("add")
   const [quantity, setQuantity] = useState("")
   const [reason, setReason] = useState("")
   const router = useRouter()
@@ -49,14 +49,19 @@ export function AdjustInventoryDialog({ product, open, onOpenChange }: AdjustInv
 
       switch (adjustmentType) {
         case "add":
+        case "purchase":
+        case "return":
           newQuantity = currentStock + qtyValue
           quantityChange = qtyValue
           break
         case "remove":
+        case "sale":
           newQuantity = Math.max(0, currentStock - qtyValue)
           quantityChange = -Math.min(qtyValue, currentStock)
           break
         case "set":
+        case "manual":
+        case "adjustment":
           newQuantity = qtyValue
           quantityChange = qtyValue - currentStock
           break
@@ -122,7 +127,7 @@ export function AdjustInventoryDialog({ product, open, onOpenChange }: AdjustInv
               <Label>Adjustment Type</Label>
               <Select
                 value={adjustmentType}
-                onValueChange={(value: "add" | "remove" | "set") => setAdjustmentType(value)}
+                onValueChange={(value: string) => setAdjustmentType(value)}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -131,12 +136,17 @@ export function AdjustInventoryDialog({ product, open, onOpenChange }: AdjustInv
                   <SelectItem value="add">Add Stock</SelectItem>
                   <SelectItem value="remove">Remove Stock</SelectItem>
                   <SelectItem value="set">Set Stock Level</SelectItem>
+                  <SelectItem value="sale">Sale</SelectItem>
+                  <SelectItem value="return">Return</SelectItem>
+                  <SelectItem value="manual">Manual Adjustment</SelectItem>
+                  <SelectItem value="purchase">Purchase</SelectItem>
+                  <SelectItem value="adjustment">General Adjustment</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="quantity">{adjustmentType === "set" ? "New Stock Level" : "Quantity"}</Label>
+              <Label htmlFor="quantity">{["set", "manual", "adjustment"].includes(adjustmentType) ? "New Stock Level" : "Quantity"}</Label>
               <Input
                 id="quantity"
                 type="number"

@@ -82,13 +82,29 @@ export default function OnlineOrdersPage() {
           return
         }
 
+        // Get user role - try profiles first, then registered_customers
+        let role = null
         const { data: profile } = await supabase
           .from('profiles')
           .select('*, role:roles(*)')
           .eq('id', user.id)
           .single()
 
-        const role = profile?.role?.name || null
+        if (profile) {
+          role = profile.role?.name || null
+        } else {
+          // Check if user is a registered customer
+          const { data: regCustomer } = await supabase
+            .from('registered_customers')
+            .select('id')
+            .eq('user_id', user.id)
+            .single()
+
+          if (regCustomer) {
+            role = 'customer'
+          }
+        }
+
         setUserRole(role)
 
         // Fetch online sales with related data via API
@@ -380,7 +396,9 @@ export default function OnlineOrdersPage() {
                         {sale.customer?.full_name || "Walk-in Customer"}
                       </TableCell>
                       <TableCell>
-                        {sale.items?.reduce((sum, item) => sum + item.quantity, 0) || 0} items
+                        <div className="max-w-xs truncate" title={sale.items?.map(item => `${item.product_name} (${item.quantity})`).join(', ') || ''}>
+                          {sale.items?.map(item => `${item.product_name} (${item.quantity})`).join(', ') || 'No items'}
+                        </div>
                       </TableCell>
                       <TableCell>
                         {sale.payments?.map(p => p.payment_method?.name).join(', ') || 'Unknown'}

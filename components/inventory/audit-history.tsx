@@ -69,15 +69,16 @@ export function AuditHistory({ productId }: AuditHistoryProps) {
   const getAdjustmentTypeColor = (type: string) => {
     switch (type) {
       case 'add':
-        return 'default'
-      case 'remove':
-        return 'destructive'
-      case 'set':
-        return 'secondary'
-      case 'sale':
-        return 'outline'
+      case 'purchase':
       case 'return':
         return 'default'
+      case 'remove':
+      case 'sale':
+        return 'destructive'
+      case 'set':
+      case 'manual':
+      case 'adjustment':
+        return 'secondary'
       default:
         return 'secondary'
     }
@@ -95,6 +96,12 @@ export function AuditHistory({ productId }: AuditHistoryProps) {
         return 'Sale'
       case 'return':
         return 'Return'
+      case 'manual':
+        return 'Manual Adjustment'
+      case 'purchase':
+        return 'Purchase'
+      case 'adjustment':
+        return 'General Adjustment'
       default:
         return type.charAt(0).toUpperCase() + type.slice(1)
     }
@@ -131,6 +138,9 @@ export function AuditHistory({ productId }: AuditHistoryProps) {
                   <SelectItem value="set">Stock Set</SelectItem>
                   <SelectItem value="sale">Sale</SelectItem>
                   <SelectItem value="return">Return</SelectItem>
+                  <SelectItem value="manual">Manual Adjustment</SelectItem>
+                  <SelectItem value="purchase">Purchase</SelectItem>
+                  <SelectItem value="adjustment">General Adjustment</SelectItem>
                 </SelectContent>
               </Select>
             </div>

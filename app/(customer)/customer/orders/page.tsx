@@ -8,6 +8,7 @@ import {
   Package, MapPin, CreditCard, ChevronRight
 } from "lucide-react"
 import { redirect } from "next/navigation"
+import Link from "next/link"
 
 interface Order {
   id: string;
@@ -55,7 +56,7 @@ export default async function CustomerOrdersPage() {
       .from("sales")
       .select(`
         id, invoice_number, total, tax_amount, discount_amount, status, created_at,
-        sale_items(count, products(name, price))
+        sale_items(id, quantity, unit_price, products(name, price))
       `)
       .eq("customer_id", customer.id)
       .order("created_at", { ascending: false })

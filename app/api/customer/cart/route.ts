@@ -13,7 +13,7 @@ export async function GET() {
     // Get customer data
     const { data: registeredCustomer } = await supabase
       .from("registered_customers")
-      .select("id")
+      .select("*")
       .eq("user_id", user.id)
       .single();
 
@@ -27,8 +27,31 @@ export async function GET() {
       .eq("registered_customer_id", registeredCustomer.id)
       .single();
 
-    if (!customer) {
-      return NextResponse.json({ error: "Customer record not found" }, { status: 404 });
+    let customerRecord = customer;
+    if (!customerRecord) {
+      // Create customer record
+      const { data: newCustomer, error: createError } = await supabase
+        .from("customers")
+        .insert({
+          phone: registeredCustomer.phone,
+          email: registeredCustomer.email,
+          full_name: registeredCustomer.full_name,
+          date_of_birth: registeredCustomer.date_of_birth,
+          gender: registeredCustomer.gender,
+          address: registeredCustomer.address,
+          city: registeredCustomer.city,
+          country: registeredCustomer.country,
+          registered_customer_id: registeredCustomer.id,
+          first_visit_date: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('Error creating customer:', createError);
+        return NextResponse.json({ error: 'Failed to create customer profile' }, { status: 500 });
+      }
+      customerRecord = newCustomer;
     }
 
     // Get cart items with product details
@@ -50,7 +73,7 @@ export async function GET() {
           )
         )
       `)
-      .eq('customer_id', customer.id)
+      .eq('customer_id', customerRecord!.id)
       .order('added_at', { ascending: false });
 
     if (error) {
@@ -103,7 +126,7 @@ export async function POST(request: NextRequest) {
     // Get customer data
     const { data: registeredCustomer } = await supabase
       .from("registered_customers")
-      .select("id")
+      .select("*")
       .eq("user_id", user.id)
       .single();
 
@@ -117,8 +140,31 @@ export async function POST(request: NextRequest) {
       .eq("registered_customer_id", registeredCustomer.id)
       .single();
 
-    if (!customer) {
-      return NextResponse.json({ error: "Customer record not found" }, { status: 404 });
+    let customerRecord = customer;
+    if (!customerRecord) {
+      // Create customer record
+      const { data: newCustomer, error: createError } = await supabase
+        .from("customers")
+        .insert({
+          phone: registeredCustomer.phone,
+          email: registeredCustomer.email,
+          full_name: registeredCustomer.full_name,
+          date_of_birth: registeredCustomer.date_of_birth,
+          gender: registeredCustomer.gender,
+          address: registeredCustomer.address,
+          city: registeredCustomer.city,
+          country: registeredCustomer.country,
+          registered_customer_id: registeredCustomer.id,
+          first_visit_date: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('Error creating customer:', createError);
+        return NextResponse.json({ error: 'Failed to create customer profile' }, { status: 500 });
+      }
+      customerRecord = newCustomer;
     }
 
     const { productId, quantity = 1 } = await request.json();
@@ -150,7 +196,7 @@ export async function POST(request: NextRequest) {
     const { data: existingItem, error: checkError } = await supabase
       .from('customer_cart')
       .select('id, quantity')
-      .eq('customer_id', customer.id)
+      .eq('customer_id', customerRecord!.id)
       .eq('product_id', productId)
       .single();
 
@@ -186,7 +232,7 @@ export async function POST(request: NextRequest) {
       const { data, error } = await supabase
         .from('customer_cart')
         .insert({
-          customer_id: customer.id,
+          customer_id: customerRecord!.id,
           product_id: productId,
           quantity,
         })
@@ -218,7 +264,7 @@ export async function PUT(request: NextRequest) {
     // Get customer data
     const { data: registeredCustomer } = await supabase
       .from("registered_customers")
-      .select("id")
+      .select("*")
       .eq("user_id", user.id)
       .single();
 
@@ -232,8 +278,31 @@ export async function PUT(request: NextRequest) {
       .eq("registered_customer_id", registeredCustomer.id)
       .single();
 
-    if (!customer) {
-      return NextResponse.json({ error: "Customer record not found" }, { status: 404 });
+    let customerRecord = customer;
+    if (!customerRecord) {
+      // Create customer record
+      const { data: newCustomer, error: createError } = await supabase
+        .from("customers")
+        .insert({
+          phone: registeredCustomer.phone,
+          email: registeredCustomer.email,
+          full_name: registeredCustomer.full_name,
+          date_of_birth: registeredCustomer.date_of_birth,
+          gender: registeredCustomer.gender,
+          address: registeredCustomer.address,
+          city: registeredCustomer.city,
+          country: registeredCustomer.country,
+          registered_customer_id: registeredCustomer.id,
+          first_visit_date: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('Error creating customer:', createError);
+        return NextResponse.json({ error: 'Failed to create customer profile' }, { status: 500 });
+      }
+      customerRecord = newCustomer;
     }
 
     const { productId, quantity } = await request.json();
@@ -247,7 +316,7 @@ export async function PUT(request: NextRequest) {
       const { error } = await supabase
         .from('customer_cart')
         .delete()
-        .eq('customer_id', customer.id)
+        .eq('customer_id', customerRecord!.id)
         .eq('product_id', productId);
 
       if (error) {
@@ -280,7 +349,7 @@ export async function PUT(request: NextRequest) {
           quantity,
           updated_at: new Date().toISOString(),
         })
-        .eq('customer_id', customer.id)
+        .eq('customer_id', customerRecord!.id)
         .eq('product_id', productId);
 
       if (error) {
@@ -308,7 +377,7 @@ export async function DELETE() {
     // Get customer data
     const { data: registeredCustomer } = await supabase
       .from("registered_customers")
-      .select("id")
+      .select("*")
       .eq("user_id", user.id)
       .single();
 
@@ -322,14 +391,37 @@ export async function DELETE() {
       .eq("registered_customer_id", registeredCustomer.id)
       .single();
 
-    if (!customer) {
-      return NextResponse.json({ error: "Customer record not found" }, { status: 404 });
+    let customerRecord = customer;
+    if (!customerRecord) {
+      // Create customer record
+      const { data: newCustomer, error: createError } = await supabase
+        .from("customers")
+        .insert({
+          phone: registeredCustomer.phone,
+          email: registeredCustomer.email,
+          full_name: registeredCustomer.full_name,
+          date_of_birth: registeredCustomer.date_of_birth,
+          gender: registeredCustomer.gender,
+          address: registeredCustomer.address,
+          city: registeredCustomer.city,
+          country: registeredCustomer.country,
+          registered_customer_id: registeredCustomer.id,
+          first_visit_date: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('Error creating customer:', createError);
+        return NextResponse.json({ error: 'Failed to create customer profile' }, { status: 500 });
+      }
+      customerRecord = newCustomer;
     }
 
     const { error } = await supabase
       .from('customer_cart')
       .delete()
-      .eq('customer_id', customer.id);
+      .eq('customer_id', customerRecord!.id);
 
     if (error) {
       console.error('Error clearing cart:', error);

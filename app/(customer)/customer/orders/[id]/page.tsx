@@ -17,7 +17,7 @@ interface OrderItem {
   id: string
   quantity: number
   unit_price: number
-  total_price: number
+  line_total: number
   products: {
     id: string
     name: string
@@ -35,7 +35,6 @@ interface OrderDetails {
   discount_amount: number
   status: string
   created_at: string
-  updated_at: string
   payment_method?: string
   payment_status?: string
   notes?: string
@@ -229,7 +228,7 @@ export default function OrderDetailsPage() {
                   <div className="text-right">
                     <p className="font-semibold">UGX {item.unit_price.toLocaleString()}</p>
                     <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
-                    <p className="text-sm font-medium">UGX {item.total_price.toLocaleString()}</p>
+                    <p className="text-sm font-medium">UGX {item.line_total.toLocaleString()}</p>
                   </div>
                 </div>
               ))}
@@ -266,7 +265,7 @@ export default function OrderDetailsPage() {
                     <div>
                       <p className="font-medium">Order Completed</p>
                       <p className="text-sm text-muted-foreground">
-                        {new Date(order.updated_at).toLocaleString()}
+                        {new Date(order.created_at).toLocaleString()}
                       </p>
                     </div>
                   </div>
