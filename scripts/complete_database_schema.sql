@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS branches (
   city TEXT,
   phone TEXT,
   email TEXT,
-  manager_id UUID REFERENCES auth.users(id),
+  manager_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
   is_headquarters BOOLEAN DEFAULT FALSE,
   is_active BOOLEAN DEFAULT TRUE,
   operating_hours JSONB,
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS branches (
 -- =============================================
 CREATE TABLE IF NOT EXISTS employees (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id UUID UNIQUE REFERENCES profiles(id) ON DELETE CASCADE,
   employee_id TEXT NOT NULL UNIQUE,
   first_name TEXT NOT NULL,
   last_name TEXT NOT NULL,
@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS employee_shifts (
   break_duration_minutes INTEGER DEFAULT 30,
   is_active BOOLEAN DEFAULT TRUE,
   notes TEXT,
-  created_by UUID REFERENCES auth.users(id),
+  created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(employee_id, shift_date, start_time)
 );
@@ -109,7 +109,7 @@ CREATE TABLE IF NOT EXISTS employee_attendance (
   total_hours DECIMAL(4,2),
   status TEXT DEFAULT 'present' CHECK (status IN ('present', 'absent', 'late', 'early_departure', 'on_leave')),
   notes TEXT,
-  recorded_by UUID REFERENCES auth.users(id),
+  recorded_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -121,7 +121,7 @@ CREATE TABLE IF NOT EXISTS employee_performance (
   employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
   review_period_start DATE NOT NULL,
   review_period_end DATE NOT NULL,
-  reviewer_id UUID REFERENCES auth.users(id),
+  reviewer_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
   rating DECIMAL(3,1) CHECK (rating >= 1.0 AND rating <= 5.0),
   goals_achievement DECIMAL(5,2),
   customer_satisfaction DECIMAL(3,1),
@@ -403,8 +403,8 @@ CREATE TABLE IF NOT EXISTS stock_transfers (
   from_branch_id UUID REFERENCES branches(id),
   to_branch_id UUID NOT NULL REFERENCES branches(id),
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'in_transit', 'received', 'cancelled')),
-  requested_by UUID NOT NULL REFERENCES auth.users(id),
-  approved_by UUID REFERENCES auth.users(id),
+  requested_by UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  approved_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
   shipped_at TIMESTAMPTZ,
   received_at TIMESTAMPTZ,
   notes TEXT,
@@ -467,7 +467,7 @@ CREATE TABLE IF NOT EXISTS customers (
 CREATE TABLE IF NOT EXISTS sales (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   invoice_number TEXT NOT NULL UNIQUE,
-  user_id UUID NOT NULL REFERENCES auth.users(id),
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   customer_id UUID REFERENCES customers(id),
   branch_id UUID REFERENCES branches(id),
   subtotal DECIMAL(10, 2) NOT NULL CHECK (subtotal >= 0),
@@ -521,7 +521,7 @@ CREATE TABLE IF NOT EXISTS gift_cards (
   expiry_date DATE,
   is_active BOOLEAN DEFAULT TRUE,
   issued_to UUID REFERENCES customers(id),
-  issued_by UUID NOT NULL REFERENCES auth.users(id),
+  issued_by UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   issued_at TIMESTAMPTZ DEFAULT NOW(),
   last_used_at TIMESTAMPTZ,
   notes TEXT
@@ -538,7 +538,7 @@ CREATE TABLE IF NOT EXISTS gift_card_transactions (
   balance_before DECIMAL(10,2) NOT NULL,
   balance_after DECIMAL(10,2) NOT NULL,
   sale_id UUID REFERENCES sales(id),
-  performed_by UUID REFERENCES auth.users(id),
+  performed_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -558,7 +558,7 @@ CREATE TABLE IF NOT EXISTS customer_deposits (
   due_date DATE,
   status TEXT DEFAULT 'active' CHECK (status IN ('active', 'completed', 'cancelled', 'refunded')),
   completed_at TIMESTAMPTZ,
-  created_by UUID NOT NULL REFERENCES auth.users(id),
+  created_by UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -574,7 +574,7 @@ CREATE TABLE IF NOT EXISTS deposit_payments (
   amount DECIMAL(10,2) NOT NULL CHECK (amount > 0),
   payment_date TIMESTAMPTZ DEFAULT NOW(),
   reference_number TEXT,
-  recorded_by UUID REFERENCES auth.users(id),
+  recorded_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -584,8 +584,8 @@ CREATE TABLE IF NOT EXISTS deposit_payments (
 -- =============================================
 CREATE TABLE IF NOT EXISTS messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  sender_id UUID NOT NULL REFERENCES auth.users(id),
-  recipient_id UUID REFERENCES auth.users(id),
+  sender_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  recipient_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   recipient_role TEXT CHECK (recipient_role IN ('admin', 'manager', 'cashier')),
   subject TEXT NOT NULL,
   content TEXT NOT NULL,

@@ -81,8 +81,16 @@ export function AddPurchaseOrderDialog({ suppliers, onOrderAdded }: AddPurchaseO
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || `Failed to create purchase order: ${response.status}`)
+        let errorMessage = `Failed to create purchase order: ${response.status}`
+        try {
+          const errorText = await response.text()
+          const errorData = JSON.parse(errorText)
+          errorMessage = errorData.error || errorMessage
+        } catch (parseError) {
+          // If response is not JSON, use the raw text
+          errorMessage = `Failed to create purchase order: ${response.status}`
+        }
+        throw new Error(errorMessage)
       }
 
       const { order } = await response.json()

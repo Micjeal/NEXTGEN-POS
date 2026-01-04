@@ -3,10 +3,11 @@ import { NextRequest, NextResponse } from "next/server"
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const serviceClient = createServiceClient()
+    const { id } = await params
 
     const { data: employee, error } = await serviceClient
       .from("employees")
@@ -15,7 +16,7 @@ export async function GET(
         branch:branches(name),
         user:profiles(full_name, email)
       `)
-      .eq("id", params.id)
+      .eq("id", id)
       .single()
 
     if (error) {
@@ -32,16 +33,17 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const serviceClient = createServiceClient()
     const body = await request.json()
+    const { id } = await params
 
     const { error } = await serviceClient
       .from("employees")
       .update(body)
-      .eq("id", params.id)
+      .eq("id", id)
 
     if (error) {
       console.error("Employee update error:", error)
@@ -57,15 +59,16 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const serviceClient = createServiceClient()
+    const { id } = await params
 
     const { error } = await serviceClient
       .from("employees")
       .update({ is_active: false })
-      .eq("id", params.id)
+      .eq("id", id)
 
     if (error) {
       console.error("Employee deactivate error:", error)

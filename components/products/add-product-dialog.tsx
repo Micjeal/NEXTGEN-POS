@@ -33,6 +33,7 @@ export function AddProductDialog({ categories, suppliers }: AddProductDialogProp
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     name: "",
     barcode: "",
@@ -154,26 +155,21 @@ export function AddProductDialog({ categories, suppliers }: AddProductDialogProp
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
+    // Reset error state
+    setError(null)
+
     // Basic validation
     if (!formData.name.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Product name is required",
-        variant: "destructive",
-      })
+      setError("Product name is required")
       return
     }
-    
+
     if (!formData.price || isNaN(Number(formData.price)) || Number(formData.price) <= 0) {
-      toast({
-        title: "Validation Error",
-        description: "Please enter a valid price",
-        variant: "destructive",
-      })
+      setError("Please enter a valid price")
       return
     }
-    
+
     setIsLoading(true)
 
     try {
@@ -290,6 +286,7 @@ export function AddProductDialog({ categories, suppliers }: AddProductDialogProp
 
       // Reset form
       setOpen(false)
+      setError(null)
       setFormData({
         name: "",
         barcode: "",
@@ -344,8 +341,16 @@ export function AddProductDialog({ categories, suppliers }: AddProductDialogProp
               errorMessage = `Database error (${errorCode}). Please try again.`
           }
         } else if ('message' in error && (error as any).message) {
-          console.log('Found error message:', (error as any).message)
-          errorMessage = (error as any).message
+            console.log('Found error message:', (error as any).message)
+            const msg = (error as any).message
+            // Provide user-friendly messages for common database errors
+            if (msg.includes('duplicate key value violates unique constraint "products_barcode_key"')) {
+              errorMessage = "A product with this barcode already exists. Please use a different barcode or leave it blank."
+            } else if (msg.includes('duplicate key value violates unique constraint')) {
+              errorMessage = "This information already exists in the system. Please check your entries and try again."
+            } else {
+              errorMessage = msg
+            }
         } else if ('details' in error && (error as any).details) {
           console.log('Found error details:', (error as any).details)
           errorMessage = (error as any).details
@@ -360,11 +365,7 @@ export function AddProductDialog({ categories, suppliers }: AddProductDialogProp
         console.log('Unknown error type:', error)
       }
 
-      toast({
-        title: "Error Creating Product",
-        description: errorMessage,
-        variant: "destructive",
-      })
+      setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -411,6 +412,32 @@ export function AddProductDialog({ categories, suppliers }: AddProductDialogProp
             </div>
           </div>
         </DialogHeader>
+
+        {error && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <div className="p-1 bg-blue-100 dark:bg-blue-900/30 rounded-full">
+                <svg className="h-4 w-4 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200">Product Creation Notice</h4>
+                <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">{error}</p>
+              </div>
+              <button
+                onClick={() => setError(null)}
+                className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-full transition-colors"
+                aria-label="Dismiss notice"
+              >
+                <svg className="h-4 w-4 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid gap-6">
             {/* Product Information Section */}
@@ -690,6 +717,7 @@ export function AddProductDialog({ categories, suppliers }: AddProductDialogProp
                     variant="outline"
                     onClick={() => {
                       setOpen(false)
+                      setError(null)
                       setImagePreview(null)
                       if (fileInputRef.current) {
                         fileInputRef.current.value = ""

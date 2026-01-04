@@ -172,17 +172,38 @@ export async function POST(request: NextRequest) {
       // Don't fail the whole request, but log it
     }
 
-    // Get payment method ID
+    // Get payment method ID - map frontend values to database names
     let paymentMethodId = null
     if (payment_method) {
+      // Map frontend payment method values to database names
+      const paymentMethodMapping: { [key: string]: string } = {
+        'cash_on_delivery': 'Cash',
+        'card': 'Card',
+        'mobile_money': 'Mobile Payment',
+        'bank_transfer': 'Bank Transfer'
+      }
+
+      const dbPaymentMethodName = paymentMethodMapping[payment_method] || payment_method
+
       const { data: paymentMethodData, error: pmError } = await serviceClient
         .from('payment_methods')
         .select('id')
-        .eq('name', payment_method)
+        .eq('name', dbPaymentMethodName)
         .single()
 
       if (!pmError && paymentMethodData) {
         paymentMethodId = paymentMethodData.id
+      } else {
+        // If payment method doesn't exist, create it
+        const { data: newPaymentMethod, error: createPmError } = await serviceClient
+          .from('payment_methods')
+          .insert({ name: dbPaymentMethodName, is_active: true })
+          .select('id')
+          .single()
+
+        if (!createPmError && newPaymentMethod) {
+          paymentMethodId = newPaymentMethod.id
+        }
       }
     }
 

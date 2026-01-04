@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { ShoppingCart, LayoutDashboard, Package, Warehouse, Users, BarChart3, Settings, LogOut, CreditCard, MessageSquare, Building2, FileText, Receipt, Shield, UserCheck, Award, Eye, Globe } from "lucide-react"
+import { ShoppingCart, LayoutDashboard, Package, Warehouse, Users, BarChart3, Settings, LogOut, CreditCard, MessageSquare, Building2, FileText, Receipt, Shield, UserCheck, Award, Eye, Globe, ArrowRightLeft, TrendingUp, Calendar, Star } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -21,10 +21,15 @@ const navigation = [
   { name: "Loyalty", href: "/loyalty", icon: Award, roles: ["admin", "manager"] },
   { name: "Products", href: "/products", icon: Package, roles: ["admin", "manager"] },
   { name: "Inventory", href: "/inventory", icon: Warehouse, roles: ["admin", "manager"] },
+  { name: "Branch Inventory", href: "/branch-inventory", icon: Package, roles: ["admin", "manager"] },
   { name: "Suppliers", href: "/suppliers", icon: Building2, roles: ["admin", "manager"] },
   { name: "Purchase Orders", href: "/purchase-orders", icon: FileText, roles: ["admin", "manager"] },
   { name: "Users", href: "/users", icon: Users, roles: ["admin", "manager"] },
   { name: "Employees", href: "/employees", icon: Users, roles: ["admin", "manager"] },
+  { name: "Employee Shifts", href: "/employee-shifts", icon: Calendar, roles: ["admin", "manager"] },
+  { name: "Employee Performance", href: "/employee-performance", icon: Star, roles: ["admin", "manager"] },
+  { name: "Branches", href: "/branches", icon: Building2, roles: ["admin", "manager"] },
+  { name: "Branch Performance", href: "/branch-performance", icon: TrendingUp, roles: ["admin", "manager"] },
   { name: "Messages", href: "/messages", icon: MessageSquare, roles: ["admin", "manager", "cashier"] },
   { name: "Reports", href: "/reports", icon: BarChart3, roles: ["admin", "manager"] },
   { name: "Insights", href: "/insights", icon: Eye, roles: ["admin", "manager"] },

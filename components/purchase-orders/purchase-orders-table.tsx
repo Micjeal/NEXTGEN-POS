@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Search, FileText, Building2, User, Calendar, DollarSign, Package, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
+import { Search, FileText, Building2, User, Calendar, DollarSign, Package, MoreHorizontal, Pencil, Trash2, Eye } from "lucide-react"
 import { EditPurchaseOrderDialog } from "./edit-purchase-order-dialog"
 import { DeletePurchaseOrderDialog } from "./delete-purchase-order-dialog"
 
@@ -112,7 +112,12 @@ export function PurchaseOrdersTable({ purchaseOrders, suppliers }: PurchaseOrder
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Building2 className="h-4 w-4 text-muted-foreground" />
-                        <span>{order.supplier?.name}</span>
+                        <a
+                          href={`/suppliers/${order.supplier_id}`}
+                          className="text-primary hover:underline font-medium"
+                        >
+                          {order.supplier?.name}
+                        </a>
                       </div>
                     </TableCell>
                     <TableCell>

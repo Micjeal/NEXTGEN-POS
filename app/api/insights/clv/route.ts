@@ -68,8 +68,8 @@ export async function GET(request: NextRequest) {
     const churnRate = 100 - customerRetention
 
     // Get CLV distribution by segments
-    const segmentData = customerAnalytics?.reduce((acc, customer) => {
-      const segment = customer.loyalty_tier || 'bronze'
+    const segmentData: Record<string, { total: number; count: number }> = customerAnalytics?.reduce((acc, customer) => {
+      const segment = customer.clv_segment || customer.loyalty_tier || 'bronze'
       if (!acc[segment]) {
         acc[segment] = { total: 0, count: 0 }
       }

@@ -95,7 +95,8 @@ async function addDemoAdjustments() {
     console.log(`Created ${adjustments.length} adjustment records`);
 
   } catch (error) {
-    console.error('❌ Error adding demo adjustments:', error.message);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    console.error('❌ Error adding demo adjustments:', errorMessage);
     process.exit(1);
   }
 }

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Search, Building2, Phone, Mail, MapPin, Star, DollarSign, Truck, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
+import { Search, Building2, Phone, Mail, MapPin, Star, DollarSign, Truck, MoreHorizontal, Pencil, Trash2, Eye } from "lucide-react"
 import { EditSupplierDialog } from "./edit-supplier-dialog"
 import { DeleteSupplierDialog } from "./delete-supplier-dialog"
 
@@ -184,18 +184,24 @@ export function SuppliersTable({ suppliers }: SuppliersTableProps) {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => setEditSupplier(supplier)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => setDeleteSupplier(supplier)}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
+                           <DropdownMenuItem asChild>
+                             <a href={`/suppliers/${supplier.id}`} className="flex items-center">
+                               <Eye className="mr-2 h-4 w-4" />
+                               View Details
+                             </a>
+                           </DropdownMenuItem>
+                           <DropdownMenuItem onClick={() => setEditSupplier(supplier)}>
+                             <Pencil className="mr-2 h-4 w-4" />
+                             Edit
+                           </DropdownMenuItem>
+                           <DropdownMenuItem
+                             onClick={() => setDeleteSupplier(supplier)}
+                             className="text-destructive focus:text-destructive"
+                           >
+                             <Trash2 className="mr-2 h-4 w-4" />
+                             Delete
+                           </DropdownMenuItem>
+                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>

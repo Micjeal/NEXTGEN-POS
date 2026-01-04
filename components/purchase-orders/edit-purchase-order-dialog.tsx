@@ -86,8 +86,39 @@ export function EditPurchaseOrderDialog({ order, suppliers, open, onOpenChange }
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || `Failed to update purchase order: ${response.status}`)
+        let errorMessage = `Failed to update purchase order: ${response.status}`
+        let shouldShowError = true
+        
+        try {
+          const errorText = await response.text()
+          const errorData = JSON.parse(errorText)
+          
+          if (response.status === 404) {
+            // Close the dialog first
+            onOpenChange(false)
+            // Then refresh the page to get the latest data
+            router.refresh()
+            // Show a toast with the error message
+            toast({
+              title: "Purchase Order Not Found",
+              description: "The purchase order could not be found. The page has been refreshed with the latest data.",
+              variant: "destructive",
+            })
+            // Don't show the error again since we've already handled it
+            shouldShowError = false
+          } else {
+            errorMessage = errorData.error || errorMessage
+          }
+        } catch (parseError) {
+          // If response is not JSON, use the raw text
+          errorMessage = `Failed to update purchase order: ${response.status}`
+        }
+        
+        if (shouldShowError) {
+          throw new Error(errorMessage)
+        } else {
+          return // Exit the function early since we've handled the 404 case
+        }
       }
 
       toast({

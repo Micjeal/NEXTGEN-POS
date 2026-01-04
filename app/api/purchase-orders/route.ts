@@ -1,6 +1,5 @@
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { NextRequest, NextResponse } from "next/server"
-import { requirePermission } from "@/lib/utils/permissions"
 
 // POST /api/purchase-orders - Create a new purchase order
 export async function POST(request: NextRequest) {
@@ -12,10 +11,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Check user permission - purchase orders require manager/admin
-    try {
-      await requirePermission(user.id, 'manage_inventory')
-    } catch (error) {
+    // Check user role - purchase orders require manager/admin
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*, role:roles(*)')
+      .eq('id', user.id)
+      .single()
+
+    const userRole = profile?.role?.name
+    if (userRole !== 'admin' && userRole !== 'manager') {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
@@ -25,14 +29,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Supplier and order number are required" }, { status: 400 })
     }
 
+    // Use service client for data operations (bypasses RLS)
+    const serviceClient = createServiceClient()
+
     // Check if order number already exists
-    const { data: existingOrder } = await supabase
+    const { data: existingOrder } = await serviceClient
       .from("purchase_orders")
       .select("id")
       .eq("order_number", order_number.trim())
-      .single()
 
-    if (existingOrder) {
+    if (existingOrder && existingOrder.length > 0) {
       return NextResponse.json({ error: "Purchase order with this number already exists" }, { status: 400 })
     }
 
@@ -51,7 +57,7 @@ export async function POST(request: NextRequest) {
       created_by: user.id,
     }
 
-    const { data: order, error: insertError } = await supabase
+    const { data: order, error: insertError } = await serviceClient
       .from("purchase_orders")
       .insert(orderData)
       .select()
@@ -88,7 +94,10 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search')
 
-    let query = supabase
+    // Use service client for data operations (bypasses RLS)
+    const serviceClient = createServiceClient()
+
+    let query = serviceClient
       .from("purchase_orders")
       .select(`
         *,
@@ -127,6 +136,18 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Check user role - purchase orders require manager/admin
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*, role:roles(*)')
+      .eq('id', user.id)
+      .single()
+
+    const userRole = profile?.role?.name
+    if (userRole !== 'admin' && userRole !== 'manager') {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
+    }
+
     const { id, supplier_id, order_number, status, total_amount, tax_amount, discount_amount, shipping_amount, expected_delivery_date, actual_delivery_date, payment_terms, notes, approved_by } = await request.json()
 
     if (!id) {
@@ -137,15 +158,28 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Supplier and order number are required" }, { status: 400 })
     }
 
+    // Use service client for data operations (bypasses RLS)
+    const serviceClient = createServiceClient()
+
+    // Check if the order exists
+    const { data: existingOrderCheck } = await serviceClient
+      .from("purchase_orders")
+      .select("id")
+      .eq("id", id)
+      .single()
+
+    if (!existingOrderCheck) {
+      return NextResponse.json({ error: "Purchase order not found" }, { status: 404 })
+    }
+
     // Check if another order with this number exists
-    const { data: existingOrder } = await supabase
+    const { data: existingOrder } = await serviceClient
       .from("purchase_orders")
       .select("id")
       .eq("order_number", order_number.trim())
       .neq("id", id)
-      .single()
 
-    if (existingOrder) {
+    if (existingOrder && existingOrder.length > 0) {
       return NextResponse.json({ error: "Another purchase order with this number already exists" }, { status: 400 })
     }
 
@@ -166,7 +200,7 @@ export async function PUT(request: NextRequest) {
       updated_at: new Date().toISOString(),
     }
 
-    const { data: order, error: updateError } = await supabase
+    const { data: order, error: updateError } = await serviceClient
       .from("purchase_orders")
       .update(orderData)
       .eq("id", id)
@@ -201,6 +235,18 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Check user role - purchase orders require manager/admin
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*, role:roles(*)')
+      .eq('id', user.id)
+      .single()
+
+    const userRole = profile?.role?.name
+    if (userRole !== 'admin' && userRole !== 'manager') {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
+    }
+
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
@@ -208,8 +254,11 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Purchase order ID is required" }, { status: 400 })
     }
 
+    // Use service client for data operations (bypasses RLS)
+    const serviceClient = createServiceClient()
+
     // Check if order has items
-    const { data: orderItems } = await supabase
+    const { data: orderItems } = await serviceClient
       .from("purchase_order_items")
       .select("id")
       .eq("purchase_order_id", id)
@@ -219,7 +268,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Cannot delete purchase order with associated items" }, { status: 400 })
     }
 
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await serviceClient
       .from("purchase_orders")
       .delete()
       .eq("id", id)

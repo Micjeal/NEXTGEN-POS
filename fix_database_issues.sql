@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS cash_drawer_audit_logs (
 CREATE TABLE IF NOT EXISTS inventory_adjustments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES auth.users(id),
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   adjustment_type TEXT NOT NULL CHECK (adjustment_type IN ('manual', 'sale', 'purchase', 'return', 'adjustment')),
   quantity_change INTEGER NOT NULL,
   quantity_before INTEGER NOT NULL,
@@ -119,7 +119,13 @@ USING (get_user_role() = 'cashier')
 WITH CHECK (get_user_role() = 'cashier');
 
 -- Inventory policies
+CREATE POLICY "authenticated_select_inventory" ON inventory FOR SELECT TO authenticated USING (true);
 CREATE POLICY "authenticated_update_inventory" ON inventory FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+
+-- Branch inventory policies
+CREATE POLICY "authenticated_select_branch_inventory" ON branch_inventory FOR SELECT TO authenticated USING (true);
+CREATE POLICY "authenticated_insert_branch_inventory" ON branch_inventory FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "authenticated_update_branch_inventory" ON branch_inventory FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
 
 -- =============================================
 -- ADD INDEXES
@@ -129,4 +135,5 @@ CREATE INDEX IF NOT EXISTS idx_cash_transactions_user_id ON cash_transactions(us
 CREATE INDEX IF NOT EXISTS idx_cash_transactions_created_at ON cash_transactions(created_at);
 CREATE INDEX IF NOT EXISTS idx_cash_drawer_audit_logs_drawer_id ON cash_drawer_audit_logs(drawer_id);
 CREATE INDEX IF NOT EXISTS idx_inventory_adjustments_product_id ON inventory_adjustments(product_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_adjustments_user_id ON inventory_adjustments(user_id);
 CREATE INDEX IF NOT EXISTS idx_inventory_adjustments_created_at ON inventory_adjustments(created_at);

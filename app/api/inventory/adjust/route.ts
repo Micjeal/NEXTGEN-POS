@@ -42,14 +42,33 @@ export async function POST(request: NextRequest) {
     const serviceClient = createServiceClient()
 
     // Get current inventory
-    const { data: currentInventory, error: inventoryError } = await serviceClient
+    let { data: currentInventory, error: inventoryError } = await serviceClient
       .from('inventory')
       .select('*')
       .eq('product_id', product_id)
       .single()
 
+    // If inventory doesn't exist, create it
     if (inventoryError || !currentInventory) {
-      return NextResponse.json({ error: 'Product inventory not found' }, { status: 404 })
+      console.log('Creating inventory record for product_id:', product_id)
+      const { data: newInventory, error: createError } = await serviceClient
+        .from('inventory')
+        .insert({
+          product_id,
+          quantity: 0,
+          min_stock_level: 10,
+          max_stock_level: 1000
+        })
+        .select()
+        .single()
+
+      if (createError) {
+        console.error('Error creating inventory:', createError)
+        return NextResponse.json({ error: 'Failed to create inventory record' }, { status: 500 })
+      }
+
+      console.log('Inventory record created:', newInventory)
+      currentInventory = newInventory
     }
 
     const quantityBefore = currentInventory.quantity
@@ -77,6 +96,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update inventory
+    console.log('Updating inventory for product_id:', product_id, 'to quantity:', quantityAfter)
     const { error: updateError } = await serviceClient
       .from('inventory')
       .update({
@@ -89,6 +109,8 @@ export async function POST(request: NextRequest) {
       console.error('Error updating inventory:', updateError)
       return NextResponse.json({ error: 'Failed to update inventory' }, { status: 500 })
     }
+
+    console.log('Inventory updated successfully')
 
     // Log the adjustment
     const { error: logError } = await serviceClient
