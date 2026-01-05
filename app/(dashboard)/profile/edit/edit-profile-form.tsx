@@ -6,10 +6,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/lib/supabase/client"
-import { Loader2, Upload, X, ArrowLeft } from "lucide-react"
+import { format } from "date-fns"
+import { Loader2, Upload, X, ArrowLeft, User, Mail, Shield } from "lucide-react"
 import type { Profile } from "@/lib/types/database"
 
 interface EditProfileFormProps {
@@ -106,16 +109,21 @@ export function EditProfileForm({ profile }: EditProfileFormProps) {
 
   if (!profile) {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-200px)]">
-        <p>No profile found</p>
+      <div className="flex items-center justify-center min-h-[calc(100vh-200px)] px-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Edit Profile</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">No profile found</CardContent>
+        </Card>
       </div>
     )
   }
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="max-w-2xl mx-auto">
-        <div className="flex items-center gap-4 mb-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      <div className="container mx-auto py-8 px-4">
+        <div className="mb-8">
           <Button
             variant="outline"
             size="sm"
@@ -125,137 +133,214 @@ export function EditProfileForm({ profile }: EditProfileFormProps) {
             <ArrowLeft className="h-4 w-4" />
             Back to Profile
           </Button>
-          <h1 className="text-3xl font-bold">Edit Profile</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mt-4">
+            <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              Edit Profile
+            </span>
+          </h1>
+          <p className="text-muted-foreground mt-2">Update your account information</p>
         </div>
 
-        <Card className="bg-gradient-to-br from-white via-slate-50 to-blue-50/30 dark:from-slate-900 dark:via-slate-800 dark:to-blue-900/20">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                <Upload className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              Profile Information
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Profile Picture Section */}
-              <div className="flex items-center gap-6">
-                <div className="relative">
-                  <Avatar className="h-24 w-24 border-4 border-white shadow-lg">
-                    <AvatarImage src={imagePreview || ''} alt={profile.full_name || 'User'} />
-                    <AvatarFallback className="text-2xl bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                      {getInitials(profile.full_name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  {imagePreview && (
-                    <button
-                      type="button"
-                      onClick={removeImage}
-                      className="absolute -top-2 -right-2 rounded-full bg-destructive p-1 text-white hover:bg-destructive/90 shadow-md"
-                      aria-label="Remove image"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  )}
-                </div>
-                <div className="flex-1">
-                  <Label htmlFor="profile-image" className="text-sm font-medium">Profile Picture</Label>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Upload a new profile picture (optional)
-                  </p>
-                  <div className="flex gap-2">
-                    <input
-                      type="file"
-                      accept="image/png, image/jpeg, image/gif"
-                      onChange={handleImageChange}
-                      className="hidden"
-                      id="profile-image"
-                      aria-label="Upload profile picture"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => document.getElementById('profile-image')?.click()}
-                      className="gap-2"
-                    >
-                      <Upload className="h-4 w-4" />
-                      Upload Image
-                    </Button>
+        <div className="max-w-6xl mx-auto grid gap-6 lg:grid-cols-3">
+          {/* Preview Sidebar */}
+          <Card className="lg:col-span-1 overflow-hidden shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+            <div className="bg-gradient-to-r from-blue-500 to-purple-600 h-28" />
+            <CardContent className="relative px-6 pb-6">
+              <div className="flex flex-col items-center -mt-12">
+                <Avatar className="h-24 w-24 border-4 border-white shadow-lg">
+                  <AvatarImage src={imagePreview || ""} alt={profile.full_name || "User"} />
+                  <AvatarFallback className="text-2xl bg-gradient-to-br from-blue-100 to-purple-100 text-blue-600">
+                    {getInitials(profile.full_name)}
+                  </AvatarFallback>
+                </Avatar>
+
+                <div className="text-center mt-3">
+                  <div className="text-xl font-semibold text-gray-900">
+                    {formData.full_name || "User"}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    JPG, PNG or GIF (max 5MB)
-                  </p>
-                </div>
-              </div>
-
-              {/* Form Fields */}
-              <div className="space-y-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="full_name">Full Name *</Label>
-                  <Input
-                    id="full_name"
-                    value={formData.full_name}
-                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                    placeholder="Enter your full name"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Read-only fields */}
-              <div className="grid gap-4 md:grid-cols-2 pt-4 border-t">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-muted-foreground">Email</Label>
-                  <Input
-                    value={profile.email || ''}
-                    disabled
-                    className="bg-muted"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Email cannot be changed here
-                  </p>
+                  <div className="mt-2 flex items-center justify-center gap-2">
+                    <Badge variant="secondary" className="gap-1">
+                      <Shield className="w-4 h-4" />
+                      {profile.role?.name || "Standard User"}
+                    </Badge>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-muted-foreground">Account Type</Label>
-                  <Input
-                    value={profile.role?.name || 'Standard User'}
-                    disabled
-                    className="bg-muted"
-                  />
+                <Separator className="my-5" />
+
+                <div className="w-full space-y-4 text-sm">
+                  <div className="flex items-start gap-3">
+                    <Mail className="w-4 h-4 text-muted-foreground mt-0.5" />
+                    <div className="min-w-0">
+                      <div className="font-medium">Email</div>
+                      <div className="text-muted-foreground break-all">
+                        {profile.email || "No email"}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <User className="w-4 h-4 text-muted-foreground mt-0.5" />
+                    <div className="min-w-0">
+                      <div className="font-medium">Member since</div>
+                      <div className="text-muted-foreground">
+                        {format(new Date(profile.created_at), "PPP")}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
+            </CardContent>
+          </Card>
 
-              {/* Form Actions */}
-              <div className="flex justify-end gap-4 pt-6 border-t">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => router.push('/profile')}
-                  disabled={isLoading}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={isLoading}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Updating...
-                    </>
-                  ) : (
-                    'Update Profile'
-                  )}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+          {/* Form Card */}
+          <Card className="lg:col-span-2 shadow-lg border-0 bg-white/70 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="text-lg">Edit Information</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Profile Picture Upload */}
+                <Card className="border bg-white/70">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Upload className="w-5 h-5 text-blue-600" />
+                      Profile Picture
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center gap-6">
+                      <div className="relative">
+                        <Avatar className="h-20 w-20 border-2 border-white shadow-md">
+                          <AvatarImage src={imagePreview || ""} alt={profile.full_name || "User"} />
+                          <AvatarFallback className="text-xl bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                            {getInitials(profile.full_name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        {imagePreview && (
+                          <button
+                            type="button"
+                            onClick={removeImage}
+                            className="absolute -top-2 -right-2 rounded-full bg-destructive p-1 text-white hover:bg-destructive/90 shadow-md"
+                            aria-label="Remove image"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm text-muted-foreground mb-3">
+                          Upload a new profile picture (optional)
+                        </p>
+                        <div className="flex gap-2">
+                          <input
+                            type="file"
+                            accept="image/png, image/jpeg, image/gif"
+                            onChange={handleImageChange}
+                            className="hidden"
+                            id="profile-image"
+                            aria-label="Upload profile picture"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => document.getElementById('profile-image')?.click()}
+                            className="gap-2"
+                          >
+                            <Upload className="h-4 w-4" />
+                            Choose Image
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          JPG, PNG or GIF (max 5MB)
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Editable Fields */}
+                <Card className="border bg-white/70">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <User className="w-5 h-5 text-purple-600" />
+                      Basic Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="full_name">Full Name *</Label>
+                      <Input
+                        id="full_name"
+                        value={formData.full_name}
+                        onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                        placeholder="Enter your full name"
+                        required
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Read-only Fields */}
+                <Card className="border bg-white/70">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Shield className="w-5 h-5 text-gray-600" />
+                      Account Details
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-muted-foreground">Email</Label>
+                      <Input
+                        value={profile.email || ''}
+                        disabled
+                        className="bg-muted"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Email cannot be changed here
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-muted-foreground">Account Type</Label>
+                      <Input
+                        value={profile.role?.name || 'Standard User'}
+                        disabled
+                        className="bg-muted"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Actions */}
+                <div className="flex justify-end gap-3 pt-4 border-t">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => router.push('/profile')}
+                    disabled={isLoading}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={isLoading}
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Updating...
+                      </>
+                    ) : (
+                      'Update Profile'
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   )

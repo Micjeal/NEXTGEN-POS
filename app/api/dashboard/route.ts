@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     const isCashier = userRole === "cashier"
 
     // Date range for filtering
-    const fromDate = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 365 * 24 * 60 * 60 * 1000) // Default 1 year ago
+    const fromDate = dateFrom ? new Date(dateFrom) : new Date('2000-01-01') // Default to all time if no dateFrom
     const toDate = dateTo ? new Date(dateTo) : new Date()
 
     // Determine granularity based on date range
@@ -74,6 +74,30 @@ export async function GET(request: NextRequest) {
       .from("profiles")
       .select("*", { count: "exact", head: true })
       .eq("is_active", true)
+
+    // Fetch product categories with product counts
+    const { data: categoriesData } = await supabase
+      .from("categories")
+      .select("name, id")
+      .eq("is_active", true)
+
+    const categoriesWithCounts = await Promise.all(
+      (categoriesData || []).map(async (cat) => {
+        const { count } = await supabase
+          .from("products")
+          .select("*", { count: "exact", head: true })
+          .eq("category_id", cat.id)
+          .eq("is_active", true)
+        return { name: cat.name, count: count || 0 }
+      })
+    )
+
+    // Fetch recent customers
+    const { data: recentCustomers } = await supabase
+      .from("customers")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(5)
 
     // Fetch recent products
     const { data: recentProducts } = await supabase
@@ -387,6 +411,8 @@ export async function GET(request: NextRequest) {
       salesChange,
       yesterdayTotal,
       activeEmployeesCount: activeEmployeesCount || 0,
+      categories: categoriesWithCounts,
+      recentCustomers,
       userRole,
       greeting: `Good ${new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}`
     })

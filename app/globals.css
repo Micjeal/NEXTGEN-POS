@@ -105,6 +105,12 @@ input[type="number"]::-webkit-outer-spin-button {
   margin: 0;
 }
 
+/* Safari compatibility for user-select */
+* {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 /* Fix for iOS zoom on input */
 @supports (-webkit-touch-callout: none) {
   input, textarea {

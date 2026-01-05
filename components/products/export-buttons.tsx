@@ -50,13 +50,23 @@ export function ProductExportButtons({ products }: ProductExportButtonsProps) {
 
   return (
     <div className="flex gap-2">
-      <Button variant="outline" size="sm" onClick={generateCSV}>
-        <FileSpreadsheet className="h-4 w-4 mr-2" />
-        Export CSV
+      <Button 
+        variant="outline" 
+        size="sm" 
+        onClick={generateCSV}
+        className="border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-200 group"
+      >
+        <FileSpreadsheet className="h-4 w-4 mr-2 group-hover:text-green-600 transition-colors" />
+        <span className="group-hover:text-green-600 transition-colors">Export CSV</span>
       </Button>
-      <Button variant="outline" size="sm" onClick={generatePDF}>
-        <FileText className="h-4 w-4 mr-2" />
-        Export PDF
+      <Button 
+        variant="outline" 
+        size="sm" 
+        onClick={generatePDF}
+        className="border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-200 group"
+      >
+        <FileText className="h-4 w-4 mr-2 group-hover:text-blue-600 transition-colors" />
+        <span className="group-hover:text-blue-600 transition-colors">Export PDF</span>
       </Button>
     </div>
   )

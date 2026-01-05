@@ -42,11 +42,14 @@ export async function GET(request: NextRequest) {
       .slice(0, 5) || []
 
     // Low stock products
-    const { data: lowStockProducts } = await serviceClient
+    const { data: allProducts } = await serviceClient
       .from("products")
       .select("id, name, inventory(quantity, min_stock_level)")
       .eq("is_active", true)
-      .lte("inventory.quantity", "inventory.min_stock_level")
+
+    const lowStockProducts = allProducts?.filter(product =>
+      product.inventory && product.inventory.quantity <= product.inventory.min_stock_level
+    ) || []
 
     // Top products by sales volume
     const { data: topProductsData } = await serviceClient

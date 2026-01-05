@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { createClient } from "@/lib/supabase/client"
 import type { Profile } from "@/lib/types/database"
+import { ThemeToggle } from "@/components/ui/theme-toggle"
 
 interface HeaderProps {
   profile: Profile | null
@@ -108,6 +109,7 @@ export function Header({ profile, onToggleSidebar }: HeaderProps) {
         </div>
       </div>
       <div className="flex items-center gap-1 sm:gap-2 md:gap-4">
+        <ThemeToggle />
         <NotificationButton
           count={unreadCount}
           onClick={handleNotificationClick}

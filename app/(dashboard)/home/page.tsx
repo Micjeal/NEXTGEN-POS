@@ -17,17 +17,40 @@ import { cn } from "@/lib/utils"
 import { useSettings } from "@/lib/hooks/use-settings"
 
 export default function DashboardPage() {
-  const { settings } = useSettings()
-  const [data, setData] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: subMonths(new Date(), 12),
-    to: new Date(),
-  })
+   const { settings } = useSettings()
+   const [data, setData] = useState<any>(null)
+   const [loading, setLoading] = useState(true)
+   const [customersCount, setCustomersCount] = useState<number>(0)
+   const [dateRange, setDateRange] = useState<DateRange | undefined>({
+     from: subMonths(new Date(), 12),
+     to: new Date(),
+   })
 
   useEffect(() => {
     fetchDashboardData()
   }, [dateRange])
+
+  useEffect(() => {
+    fetchCustomersCount()
+  }, [])
+
+  const fetchCustomersCount = async () => {
+    try {
+      const response = await fetch('/api/customers', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (response.ok) {
+        const customers = await response.json()
+        setCustomersCount(customers.length || 0)
+      }
+    } catch (error) {
+      console.error('Failed to fetch customers count:', error)
+    }
+  }
 
   const fetchDashboardData = async () => {
     try {
@@ -84,6 +107,8 @@ export default function DashboardPage() {
     salesChange,
     yesterdayTotal,
     activeEmployeesCount,
+    categories,
+    recentCustomers,
     userRole,
     greeting
   } = data
@@ -156,7 +181,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Summary Widgets */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         {/* Today's Sales */}
         <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
@@ -256,7 +281,127 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Total Customers */}
+        <Card className="border-0 shadow-sm bg-gradient-to-br from-cyan-50 to-teal-50 dark:from-cyan-950/30 dark:to-teal-900/20">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium text-cyan-700 dark:text-cyan-300">Total Customers</CardTitle>
+            <div className="p-2 rounded-lg bg-cyan-100/50 dark:bg-cyan-900/30">
+              <Users className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-cyan-900 dark:text-white">{customersCount}</div>
+            <div className="mt-2">
+              <div className="flex items-center justify-between text-sm mb-1">
+                <span className="text-muted-foreground">Registered</span>
+                <span className="font-medium">{customersCount > 0 ? 'Active customers' : 'No customers yet'}</span>
+              </div>
+              <Progress value={customersCount > 0 ? 100 : 0} className="h-2 bg-cyan-200/50 dark:bg-cyan-900/30" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Performance Analytics */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold">Performance Analytics</h2>
+            <p className="text-sm text-muted-foreground">Key metrics and visualizations for your business</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Filter className="h-4 w-4" />
+                  <span>Filter</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <CalendarComponent
+                  initialFocus
+                  mode="range"
+                  defaultMonth={dateRange?.from}
+                  selected={dateRange}
+                  onSelect={setDateRange}
+                  numberOfMonths={2}
+                />
+                <div className="p-3 border-t border-border">
+                  <div className="flex items-center justify-between gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDateRange({
+                        from: subMonths(new Date(), 12),
+                        to: new Date(),
+                      })}
+                    >
+                      Last 12 Months
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDateRange({
+                        from: startOfMonth(new Date()),
+                        to: endOfMonth(new Date()),
+                      })}
+                    >
+                      This Month
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+            <Button variant="outline" size="sm" className="gap-2">
+              <Download className="h-4 w-4" />
+              <span>Export</span>
+            </Button>
+          </div>
+        </div>
+        <DashboardCharts
+          salesData={salesData}
+          granularity={granularity}
+          topProducts={topProducts}
+          productPerformance={productPerformance}
+          currency={settings.currency || 'UGX'}
+        />
+      </div>
+
+      {/* Recent Products Section */}
+      {recentProducts && recentProducts.length > 0 && (
+        <Card className="border-0 shadow-sm bg-gradient-to-br from-slate-50 to-gray-50 dark:from-slate-950/30 dark:to-gray-900/20">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
+              <Package className="h-5 w-5" />
+              Recent Products
+            </CardTitle>
+            <CardDescription className="text-slate-700 dark:text-slate-300">
+              Latest products added to your inventory
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+              {recentProducts.map((product: any, index: number) => (
+                <div key={index} className="p-4 border border-slate-200 dark:border-slate-700 rounded-lg bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm">
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-sm truncate">{product.name}</h4>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{product.category?.name || 'No Category'}</span>
+                      <Badge variant="outline" className="text-xs">
+                        {product.inventory?.[0]?.quantity || 0} in stock
+                      </Badge>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Added {new Date(product.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* AI Demand Forecasting Section */}
       <Card className="border-0 shadow-sm bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 dark:from-indigo-950/20 dark:via-purple-950/20 dark:to-pink-950/20">
@@ -354,73 +499,6 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Sales Trends Graph - Only show if we have some data */}
-      {(salesData?.length > 0 || topProducts?.length > 0 || productPerformance?.length > 0) && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-semibold">Performance Analytics</h2>
-              <p className="text-sm text-muted-foreground">Key metrics and visualizations for your business</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <Filter className="h-4 w-4" />
-                    <span>Filter</span>
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
-                  <CalendarComponent
-                    initialFocus
-                    mode="range"
-                    defaultMonth={dateRange?.from}
-                    selected={dateRange}
-                    onSelect={setDateRange}
-                    numberOfMonths={2}
-                  />
-                  <div className="p-3 border-t border-border">
-                    <div className="flex items-center justify-between gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setDateRange({
-                          from: subMonths(new Date(), 12),
-                          to: new Date(),
-                        })}
-                      >
-                        Last 12 Months
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setDateRange({
-                          from: startOfMonth(new Date()),
-                          to: endOfMonth(new Date()),
-                        })}
-                      >
-                        This Month
-                      </Button>
-                    </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
-              <Button variant="outline" size="sm" className="gap-2">
-                <Download className="h-4 w-4" />
-                <span>Export</span>
-              </Button>
-            </div>
-          </div>
-
-          <DashboardCharts
-            salesData={salesData}
-            granularity={granularity}
-            topProducts={topProducts}
-            productPerformance={productPerformance}
-            currency={settings.currency}
-          />
-        </div>
-      )}
     </div>
   )
 }
