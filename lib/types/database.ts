@@ -47,20 +47,74 @@ export type Product = {
   name: string
   barcode: string | null
   category_id: string | null
+  sku: string
   price: number
   cost_price: number
   tax_rate: number
   is_active: boolean
   image_url: string | null
   expiry_date: string | null
+  current_stock: number
+  reorder_level: number
+  reorder_quantity: number
+  lead_time: number | null
+  average_daily_sales: number | null
   created_at: string
   updated_at: string
   category?: Category
   inventory?: Inventory
   supplier?: Supplier
   supplier_products?: {
+    supplier_id: string
+    lead_time_days?: number
     supplier: Supplier
   }[]
+  batches?: ProductBatch[]
+}
+
+export type ProductBatch = {
+  id: string
+  batch_number: string
+  product_id: string
+  supplier_id: string | null
+  purchase_order_id: string | null
+  manufacturing_date: string | null
+  expiry_date: string | null
+  received_date: string
+  initial_quantity: number
+  current_quantity: number
+  unit_cost: number | null
+  storage_location: string | null
+  quality_status: "pending" | "approved" | "rejected" | "quarantined"
+  quality_notes: string | null
+  is_active: boolean
+  created_at: string
+  product?: Product
+  supplier?: Supplier
+  purchase_order?: PurchaseOrder
+  quality_inspections?: QualityInspection[]
+}
+
+export type QualityInspection = {
+  id: string
+  batch_id: string | null
+  product_id: string
+  inspection_type: "incoming" | "in_process" | "final" | "recall_check"
+  inspector_id: string | null
+  inspection_date: string
+  temperature: number | null
+  humidity: number | null
+  visual_inspection: string | null
+  microbiological_test: string | null
+  chemical_test: string | null
+  overall_rating: "excellent" | "good" | "acceptable" | "poor" | "rejected" | null
+  comments: string | null
+  corrective_actions: string | null
+  requires_followup: boolean
+  created_at: string
+  batch?: ProductBatch
+  product?: Product
+  inspector?: Profile
 }
 
 export type Inventory = {

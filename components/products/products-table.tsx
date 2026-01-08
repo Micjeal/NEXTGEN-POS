@@ -13,6 +13,7 @@ import { MoreHorizontal, Pencil, Trash2, Search, Package, Filter } from "lucide-
 import { formatCurrency } from "@/lib/utils/cart"
 import { EditProductDialog } from "./edit-product-dialog"
 import { DeleteProductDialog } from "./delete-product-dialog"
+import Link from "next/link"
 
 interface ProductsTableProps {
   products: Product[]
@@ -105,13 +106,14 @@ export function ProductsTable({ products, categories }: ProductsTableProps) {
                     <th className="text-center p-4 font-semibold text-slate-700 dark:text-slate-300">Expiry</th>
                     <th className="text-center p-4 font-semibold text-slate-700 dark:text-slate-300">Stock</th>
                     <th className="text-center p-4 font-semibold text-slate-700 dark:text-slate-300">Status</th>
+                    <th className="text-center p-4 font-semibold text-slate-700 dark:text-slate-300">Batches</th>
                     <th className="w-12"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredProducts.length === 0 ? (
                     <tr>
-                      <td colSpan={12} className="text-center py-16">
+                      <td colSpan={13} className="text-center py-16">
                         <div className="flex flex-col items-center gap-4">
                           <div className="p-4 bg-slate-100 dark:bg-slate-800 rounded-full">
                             <Package className="h-8 w-8 text-slate-400" />
@@ -150,7 +152,6 @@ export function ProductsTable({ products, categories }: ProductsTableProps) {
                               </div>
                               <div>
                                 <p className="font-medium text-slate-900 dark:text-white">{product.name}</p>
-                                <p className="text-sm text-slate-500 dark:text-slate-400">SKU: {product.sku || 'N/A'}</p>
                               </div>
                             </div>
                           </td>
@@ -243,13 +244,20 @@ export function ProductsTable({ products, categories }: ProductsTableProps) {
                               <div className={`w-2 h-2 rounded-full ${
                                 product.is_active ? 'bg-green-500' : 'bg-slate-400'
                               }`} />
-                              <Badge 
+                              <Badge
                                 variant={product.is_active ? "default" : "secondary"}
                                 className={product.is_active ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-800' : 'bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-300 border-slate-200 dark:border-slate-800'}
                               >
                                 {product.is_active ? "Active" : "Inactive"}
                               </Badge>
                             </div>
+                          </td>
+                          <td className="p-4 text-center">
+                            <Link href={`/products/${product.id}`}>
+                              <Button variant="outline" size="sm" className="text-xs">
+                                View Batches
+                              </Button>
+                            </Link>
                           </td>
                           <td className="p-4">
                             <DropdownMenu>

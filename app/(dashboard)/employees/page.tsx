@@ -13,7 +13,11 @@ import {
   MoreHorizontal,
   Edit,
   Trash2,
-  Eye
+  Eye,
+  Calendar,
+  Clock,
+  Star,
+  Briefcase
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -41,6 +45,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import Link from "next/link"
+import TimeClock from "@/components/employee/time-clock"
 
 interface Employee {
   id: string
@@ -63,6 +68,12 @@ interface Employee {
   is_from_profile?: boolean
 }
 
+interface EmployeeStats {
+  totalShifts: number
+  pendingReviews: number
+  attendanceRate: number
+}
+
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
@@ -72,6 +83,27 @@ export default function EmployeesPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeactivateDialogOpen, setIsDeactivateDialogOpen] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
+  const [currentEmployee, setCurrentEmployee] = useState<{id: string, name: string} | null>(null)
+
+  // Fetch current employee info for time clock
+  useEffect(() => {
+    const fetchCurrentEmployee = async () => {
+      try {
+        const response = await fetch('/api/employees')
+        const data = await response.json()
+        // In a real app, get current user from auth
+        if (data.employees && data.employees.length > 0) {
+          setCurrentEmployee({
+            id: data.employees[0].id,
+            name: `${data.employees[0].first_name} ${data.employees[0].last_name}`
+          })
+        }
+      } catch (error) {
+        console.error('Error fetching current employee:', error)
+      }
+    }
+    fetchCurrentEmployee()
+  }, [])
 
   const fetchEmployees = async () => {
     try {
@@ -220,8 +252,8 @@ export default function EmployeesPage() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Header with Time Clock for Current User */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
         <div className="space-y-2">
           <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
             User Management
@@ -230,15 +262,57 @@ export default function EmployeesPage() {
             Track all registered users and manage employee information
           </p>
         </div>
-        <Link href="/users/add">
-          <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-all duration-200 hover:shadow-lg">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Employee
-          </Button>
+        {currentEmployee && (
+          <div className="w-full lg:w-auto">
+            <TimeClock employeeId={currentEmployee.id} employeeName={currentEmployee.name} />
+          </div>
+        )}
+      </div>
+
+      {/* Quick Navigation Links */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Link href="/employee-shifts" className="group">
+          <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800 transition-all duration-200 hover:shadow-lg hover:scale-[1.02] group-hover:border-blue-400">
+            <CardContent className="flex items-center gap-4 pt-6">
+              <div className="p-3 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+                <Calendar className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-blue-900 dark:text-blue-100">Employee Shifts</h3>
+                <p className="text-sm text-blue-700 dark:text-blue-300">Manage schedules</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/employee-attendance" className="group">
+          <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-900/20 border-green-200 dark:border-green-800 transition-all duration-200 hover:shadow-lg hover:scale-[1.02] group-hover:border-green-400">
+            <CardContent className="flex items-center gap-4 pt-6">
+              <div className="p-3 bg-green-100 dark:bg-green-900/50 rounded-lg">
+                <Clock className="h-6 w-6 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-green-900 dark:text-green-100">Attendance</h3>
+                <p className="text-sm text-green-700 dark:text-green-300">Track time records</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/employee-performance" className="group">
+          <Card className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-900/20 border-purple-200 dark:border-purple-800 transition-all duration-200 hover:shadow-lg hover:scale-[1.02] group-hover:border-purple-400">
+            <CardContent className="flex items-center gap-4 pt-6">
+              <div className="p-3 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
+                <Star className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-purple-900 dark:text-purple-100">Performance</h3>
+                <p className="text-sm text-purple-700 dark:text-purple-300">Reviews & ratings</p>
+              </div>
+            </CardContent>
+          </Card>
         </Link>
       </div>
 
-      {/* Search and Filters */}
+      {/* Add Employee and Search */}
       <Card className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950/20 dark:to-slate-900/20">
         <CardContent className="pt-6">
           <div className="flex flex-col sm:flex-row gap-4">

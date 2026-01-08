@@ -29,7 +29,18 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import {
   Select,
   SelectContent,
@@ -85,6 +96,9 @@ export default function EmployeePerformancePage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [selectedPerformance, setSelectedPerformance] = useState<EmployeePerformance | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Form state
@@ -143,7 +157,6 @@ export default function EmployeePerformancePage() {
         improvement_areas: formData.improvement_areas || null,
       }
 
-      // Only include reviewer_id if it's not empty
       if (formData.reviewer_id) {
         submitData.reviewer_id = formData.reviewer_id
       }
@@ -173,7 +186,7 @@ export default function EmployeePerformancePage() {
           comments: "",
           improvement_areas: ""
         })
-        fetchPerformances() // Refresh the list
+        fetchPerformances()
       } else {
         const error = await response.json()
         toast.error(error.error || "Failed to add performance review")
@@ -181,6 +194,124 @@ export default function EmployeePerformancePage() {
     } catch (error) {
       console.error('Error adding performance review:', error)
       toast.error("Failed to add performance review")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleEditReview = (performance: EmployeePerformance) => {
+    setSelectedPerformance(performance)
+    setFormData({
+      employee_id: performance.employee_id,
+      review_period_start: performance.review_period_start,
+      review_period_end: performance.review_period_end,
+      reviewer_id: performance.reviewer_id || "",
+      rating: performance.rating?.toString() || "",
+      goals_achievement: performance.goals_achievement?.toString() || "",
+      customer_satisfaction: performance.customer_satisfaction?.toString() || "",
+      sales_performance: performance.sales_performance?.toString() || "",
+      punctuality: performance.punctuality?.toString() || "",
+      teamwork: performance.teamwork?.toString() || "",
+      comments: performance.comments || "",
+      improvement_areas: performance.improvement_areas || ""
+    })
+    setIsEditDialogOpen(true)
+  }
+
+  const handleUpdateReview = async () => {
+    if (!selectedPerformance || !formData.employee_id || !formData.review_period_start || !formData.review_period_end) {
+      toast.error("Please fill in all required fields")
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const submitData: any = {
+        employee_id: formData.employee_id,
+        review_period_start: formData.review_period_start,
+        review_period_end: formData.review_period_end,
+        rating: formData.rating ? parseFloat(formData.rating) : null,
+        goals_achievement: formData.goals_achievement ? parseFloat(formData.goals_achievement) : null,
+        customer_satisfaction: formData.customer_satisfaction ? parseFloat(formData.customer_satisfaction) : null,
+        sales_performance: formData.sales_performance ? parseFloat(formData.sales_performance) : null,
+        punctuality: formData.punctuality ? parseFloat(formData.punctuality) : null,
+        teamwork: formData.teamwork ? parseFloat(formData.teamwork) : null,
+        comments: formData.comments || null,
+        improvement_areas: formData.improvement_areas || null,
+      }
+
+      if (formData.reviewer_id) {
+        submitData.reviewer_id = formData.reviewer_id
+      }
+
+      const response = await fetch('/api/employee-performance', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: selectedPerformance.id,
+          ...submitData
+        }),
+      })
+
+      if (response.ok) {
+        toast.success("Performance review updated successfully")
+        setIsEditDialogOpen(false)
+        setSelectedPerformance(null)
+        setFormData({
+          employee_id: "",
+          review_period_start: "",
+          review_period_end: "",
+          reviewer_id: "",
+          rating: "",
+          goals_achievement: "",
+          customer_satisfaction: "",
+          sales_performance: "",
+          punctuality: "",
+          teamwork: "",
+          comments: "",
+          improvement_areas: ""
+        })
+        fetchPerformances()
+      } else {
+        const error = await response.json()
+        toast.error(error.error || "Failed to update performance review")
+      }
+    } catch (error) {
+      console.error('Error updating performance review:', error)
+      toast.error("Failed to update performance review")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleDeleteReview = (performance: EmployeePerformance) => {
+    setSelectedPerformance(performance)
+    setIsDeleteDialogOpen(true)
+  }
+
+  const confirmDeleteReview = async () => {
+    if (!selectedPerformance) return
+
+    setIsSubmitting(true)
+    try {
+      const response = await fetch(`/api/employee-performance?id=${selectedPerformance.id}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        toast.success("Performance review deleted successfully")
+        setIsDeleteDialogOpen(false)
+        setSelectedPerformance(null)
+        fetchPerformances()
+      } else {
+        const error = await response.json()
+        toast.error(error.error || "Failed to delete performance review")
+      }
+    } catch (error) {
+      console.error('Error deleting performance review:', error)
+      toast.error("Failed to delete performance review")
     } finally {
       setIsSubmitting(false)
     }
@@ -565,15 +696,14 @@ export default function EmployeePerformancePage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem>
-                      <Eye className="mr-2 h-4 w-4" />
-                      View Details
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleEditReview(performance)}>
                       <Edit className="mr-2 h-4 w-4" />
                       Edit Review
                     </DropdownMenuItem>
-                    <DropdownMenuItem className="text-red-600">
+                    <DropdownMenuItem 
+                      className="text-red-600"
+                      onClick={() => handleDeleteReview(performance)}
+                    >
                       <Trash2 className="mr-2 h-4 w-4" />
                       Delete Review
                     </DropdownMenuItem>
@@ -674,6 +804,92 @@ export default function EmployeePerformancePage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Edit Review Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Performance Review</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_employee" className="text-right">Employee *</Label>
+              <Select value={formData.employee_id} onValueChange={(value) => setFormData({...formData, employee_id: value})}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Select employee" />
+                </SelectTrigger>
+                <SelectContent>
+                  {employees.map((employee) => (
+                    <SelectItem key={employee.id} value={employee.id}>
+                      {employee.first_name} {employee.last_name} ({employee.employee_id})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_period_start" className="text-right">Period Start *</Label>
+              <Input id="edit_period_start" type="date" value={formData.review_period_start} onChange={(e) => setFormData({...formData, review_period_start: e.target.value})} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_period_end" className="text-right">Period End *</Label>
+              <Input id="edit_period_end" type="date" value={formData.review_period_end} onChange={(e) => setFormData({...formData, review_period_end: e.target.value})} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_rating" className="text-right">Overall Rating</Label>
+              <Input id="edit_rating" type="number" min="1" max="5" step="0.1" value={formData.rating} onChange={(e) => setFormData({...formData, rating: e.target.value})} className="col-span-3" placeholder="1.0 - 5.0" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_goals" className="text-right">Goals Achievement (%)</Label>
+              <Input id="edit_goals" type="number" min="0" max="100" value={formData.goals_achievement} onChange={(e) => setFormData({...formData, goals_achievement: e.target.value})} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_customer_sat" className="text-right">Customer Satisfaction</Label>
+              <Input id="edit_customer_sat" type="number" min="1" max="5" step="0.1" value={formData.customer_satisfaction} onChange={(e) => setFormData({...formData, customer_satisfaction: e.target.value})} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_sales_perf" className="text-right">Sales Performance (%)</Label>
+              <Input id="edit_sales_perf" type="number" min="0" value={formData.sales_performance} onChange={(e) => setFormData({...formData, sales_performance: e.target.value})} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_punctuality" className="text-right">Punctuality</Label>
+              <Input id="edit_punctuality" type="number" min="1" max="5" step="0.1" value={formData.punctuality} onChange={(e) => setFormData({...formData, punctuality: e.target.value})} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_teamwork" className="text-right">Teamwork</Label>
+              <Input id="edit_teamwork" type="number" min="1" max="5" step="0.1" value={formData.teamwork} onChange={(e) => setFormData({...formData, teamwork: e.target.value})} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_comments" className="text-right">Comments</Label>
+              <Textarea id="edit_comments" value={formData.comments} onChange={(e) => setFormData({...formData, comments: e.target.value})} className="col-span-3" placeholder="Performance comments..." />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_improvements" className="text-right">Improvement Areas</Label>
+              <Textarea id="edit_improvements" value={formData.improvement_areas} onChange={(e) => setFormData({...formData, improvement_areas: e.target.value})} className="col-span-3" placeholder="Areas for improvement..." />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdateReview} disabled={isSubmitting}>{isSubmitting ? "Updating..." : "Update Review"}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Performance Review</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this performance review for {selectedPerformance?.employee.first_name} {selectedPerformance?.employee.last_name}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteReview} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

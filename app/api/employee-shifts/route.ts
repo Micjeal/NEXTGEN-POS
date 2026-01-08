@@ -83,3 +83,83 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
+
+export async function PUT(request: NextRequest) {
+  try {
+    const serviceClient = createServiceClient()
+    const body = await request.json()
+
+    const {
+      id,
+      employee_id,
+      branch_id,
+      shift_date,
+      start_time,
+      end_time,
+      break_duration_minutes,
+      is_active,
+      notes
+    } = body
+
+    if (!id) {
+      return NextResponse.json({ error: "Missing shift ID" }, { status: 400 })
+    }
+
+    const { data: shift, error } = await serviceClient
+      .from("employee_shifts")
+      .update({
+        employee_id,
+        branch_id,
+        shift_date,
+        start_time,
+        end_time,
+        break_duration_minutes,
+        is_active,
+        notes
+      })
+      .eq("id", id)
+      .select(`
+        *,
+        employee:employees(first_name, last_name, employee_id),
+        branch:branches(name)
+      `)
+      .single()
+
+    if (error) {
+      console.error("Employee shift update error:", error)
+      return NextResponse.json({ error: "Failed to update employee shift" }, { status: 500 })
+    }
+
+    return NextResponse.json({ shift })
+  } catch (error) {
+    console.error("Employee shifts PUT error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const serviceClient = createServiceClient()
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get("id")
+
+    if (!id) {
+      return NextResponse.json({ error: "Missing shift ID" }, { status: 400 })
+    }
+
+    const { error } = await serviceClient
+      .from("employee_shifts")
+      .delete()
+      .eq("id", id)
+
+    if (error) {
+      console.error("Employee shift delete error:", error)
+      return NextResponse.json({ error: "Failed to delete employee shift" }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Employee shifts DELETE error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}

@@ -29,6 +29,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog"
 import {
   Select,
@@ -37,6 +38,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
@@ -63,6 +74,18 @@ interface EmployeeShift {
   } | null
 }
 
+interface EditShiftData {
+  id: string
+  employee_id: string
+  branch_id: string | null
+  shift_date: string
+  start_time: string
+  end_time: string
+  break_duration_minutes: number
+  is_active: boolean
+  notes: string | null
+}
+
 interface Employee {
   id: string
   first_name: string
@@ -84,6 +107,9 @@ export default function EmployeeShiftsPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [selectedShift, setSelectedShift] = useState<EmployeeShift | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Form state
@@ -130,9 +156,9 @@ export default function EmployeeShiftsPage() {
         end_time: formData.end_time,
         break_duration_minutes: parseInt(formData.break_duration_minutes) || 30,
         notes: formData.notes || null,
+        is_active: true,
       }
 
-      // Only include branch_id if it's not empty
       if (formData.branch_id) {
         submitData.branch_id = formData.branch_id
       }
@@ -157,7 +183,7 @@ export default function EmployeeShiftsPage() {
           break_duration_minutes: "30",
           notes: ""
         })
-        fetchShifts() // Refresh the list
+        fetchShifts()
       } else {
         const error = await response.json()
         toast.error(error.error || "Failed to add shift")
@@ -165,6 +191,110 @@ export default function EmployeeShiftsPage() {
     } catch (error) {
       console.error('Error adding shift:', error)
       toast.error("Failed to add shift")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleEditShift = (shift: EmployeeShift) => {
+    setSelectedShift(shift)
+    setFormData({
+      employee_id: shift.employee_id,
+      branch_id: shift.branch_id || "",
+      shift_date: shift.shift_date,
+      start_time: shift.start_time,
+      end_time: shift.end_time,
+      break_duration_minutes: shift.break_duration_minutes.toString(),
+      notes: shift.notes || ""
+    })
+    setIsEditDialogOpen(true)
+  }
+
+  const handleUpdateShift = async () => {
+    if (!selectedShift || !formData.employee_id || !formData.shift_date || !formData.start_time || !formData.end_time) {
+      toast.error("Please fill in all required fields")
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const submitData: any = {
+        employee_id: formData.employee_id,
+        shift_date: formData.shift_date,
+        start_time: formData.start_time,
+        end_time: formData.end_time,
+        break_duration_minutes: parseInt(formData.break_duration_minutes) || 30,
+        notes: formData.notes || null,
+        is_active: selectedShift.is_active,
+      }
+
+      if (formData.branch_id) {
+        submitData.branch_id = formData.branch_id
+      }
+
+      const response = await fetch(`/api/employee-shifts`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: selectedShift.id,
+          ...submitData
+        }),
+      })
+
+      if (response.ok) {
+        toast.success("Shift updated successfully")
+        setIsEditDialogOpen(false)
+        setSelectedShift(null)
+        setFormData({
+          employee_id: "",
+          branch_id: "",
+          shift_date: "",
+          start_time: "",
+          end_time: "",
+          break_duration_minutes: "30",
+          notes: ""
+        })
+        fetchShifts()
+      } else {
+        const error = await response.json()
+        toast.error(error.error || "Failed to update shift")
+      }
+    } catch (error) {
+      console.error('Error updating shift:', error)
+      toast.error("Failed to update shift")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleDeleteShift = (shift: EmployeeShift) => {
+    setSelectedShift(shift)
+    setIsDeleteDialogOpen(true)
+  }
+
+  const confirmDeleteShift = async () => {
+    if (!selectedShift) return
+
+    setIsSubmitting(true)
+    try {
+      const response = await fetch(`/api/employee-shifts?id=${selectedShift.id}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        toast.success("Shift deleted successfully")
+        setIsDeleteDialogOpen(false)
+        setSelectedShift(null)
+        fetchShifts()
+      } else {
+        const error = await response.json()
+        toast.error(error.error || "Failed to delete shift")
+      }
+    } catch (error) {
+      console.error('Error deleting shift:', error)
+      toast.error("Failed to delete shift")
     } finally {
       setIsSubmitting(false)
     }
@@ -461,15 +591,14 @@ export default function EmployeeShiftsPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem>
-                      <Eye className="mr-2 h-4 w-4" />
-                      View Details
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleEditShift(shift)}>
                       <Edit className="mr-2 h-4 w-4" />
                       Edit Shift
                     </DropdownMenuItem>
-                    <DropdownMenuItem className="text-red-600">
+                    <DropdownMenuItem 
+                      className="text-red-600"
+                      onClick={() => handleDeleteShift(shift)}
+                    >
                       <Trash2 className="mr-2 h-4 w-4" />
                       Delete Shift
                     </DropdownMenuItem>
@@ -547,6 +676,72 @@ export default function EmployeeShiftsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Edit Shift Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Shift</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_employee" className="text-right">Employee *</Label>
+              <Select value={formData.employee_id} onValueChange={(value) => setFormData({...formData, employee_id: value})}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Select employee" />
+                </SelectTrigger>
+                <SelectContent>
+                  {employees.map((employee) => (
+                    <SelectItem key={employee.id} value={employee.id}>
+                      {employee.first_name} {employee.last_name} ({employee.employee_id})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_shift_date" className="text-right">Date *</Label>
+              <Input id="edit_shift_date" type="date" value={formData.shift_date} onChange={(e) => setFormData({...formData, shift_date: e.target.value})} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_start_time" className="text-right">Start Time *</Label>
+              <Input id="edit_start_time" type="time" value={formData.start_time} onChange={(e) => setFormData({...formData, start_time: e.target.value})} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_end_time" className="text-right">End Time *</Label>
+              <Input id="edit_end_time" type="time" value={formData.end_time} onChange={(e) => setFormData({...formData, end_time: e.target.value})} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_break" className="text-right">Break (min)</Label>
+              <Input id="edit_break" type="number" value={formData.break_duration_minutes} onChange={(e) => setFormData({...formData, break_duration_minutes: e.target.value})} className="col-span-3" min="0" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_notes" className="text-right">Notes</Label>
+              <Textarea id="edit_notes" value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} className="col-span-3" placeholder="Optional notes..." />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdateShift} disabled={isSubmitting}>{isSubmitting ? "Updating..." : "Update Shift"}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Shift</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this shift for {selectedShift?.employee.first_name} {selectedShift?.employee.last_name} on {selectedShift ? new Date(selectedShift.shift_date).toLocaleDateString() : ''}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteShift} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
