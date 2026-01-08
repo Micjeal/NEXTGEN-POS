@@ -39,6 +39,12 @@ supabase/.temp/
 # SQL files (database schemas, migrations, seeds)
 *.sql
 
+# JavaScript files with sensitive environment variables
+check-data.js
+
+# Proxy files with environment variables
+proxy.ts
+
 # Certificate files
 *.pem
 *.key
