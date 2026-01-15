@@ -1,3 +1,5 @@
+
+![Alt](https://repobeats.axiom.co/api/embed/e99baca9ad562650626e0d596aa61933de31f7e3.svg "Repobeats analytics image")
 # SMMS POS - Smart Point of Sale System for Modern Retail
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
